@@ -8,6 +8,7 @@ pub struct Config {
     aspect_width: u32,
     aspect_height: u32,
     image_width: u32,
+    output_path: String,
 }
 
 impl Config {
@@ -21,6 +22,10 @@ impl Config {
 
     pub fn image_height(&self) -> u32 {
         (self.image_width as f64 / self.aspect_ratio()) as u32
+    }
+
+    pub fn output_path(&self) -> &Path {
+        Path::new(&self.output_path)
     }
 }
 

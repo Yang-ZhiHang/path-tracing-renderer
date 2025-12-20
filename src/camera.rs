@@ -1,10 +1,21 @@
-use glam::Vec3A;
+use crate::math::{Point3, Vec3};
 
 pub struct Camera {
-    origin: Vec3A,
-    focal_length: f32,
-    viewport_height: f32,
-    viewport_width: f32,
+    /// The original point of camera
+    pub origin: Point3,
+
+    /// The length of focal which refers to the distance from origin
+    /// in the reverse direction of axis z
+    pub focal_length: f32,
+
+    /// Width of viewport
+    pub horizontal: Vec3,
+
+    /// Height of viewport
+    pub vertical: Vec3,
+
+    /// The bottom left corner of viewport which centered on the origin
+    pub lower_left: Point3,
 }
 
 impl Camera {
@@ -14,42 +25,18 @@ impl Camera {
         viewport_height: f32,
         viewport_width: f32,
     ) -> Self {
+        let origin = Point3::from_array(origin);
+        let horizontal = Vec3::new(viewport_width, 0.0, 0.0);
+        let vertical = Vec3::new(0.0, viewport_height, 0.0);
         Self {
-            origin: Vec3A::from_array(origin),
+            origin,
             focal_length,
-            viewport_height,
-            viewport_width,
+            horizontal,
+            vertical,
+            lower_left: origin
+                - horizontal / 2.0
+                - vertical / 2.0
+                - Point3::new(0.0, 0.0, focal_length),
         }
-    }
-
-    pub fn origin(&self) -> Vec3A {
-        self.origin
-    }
-
-    pub fn focal_length(&self) -> f32 {
-        self.focal_length
-    }
-
-    pub fn viewport_height(&self) -> f32 {
-        self.viewport_height
-    }
-
-    pub fn viewport_width(&self) -> f32 {
-        self.viewport_width
-    }
-
-    pub fn horizontal_vector(&self) -> Vec3A {
-        Vec3A::new(self.viewport_width, 0.0, 0.0)
-    }
-
-    pub fn vertical_vector(&self) -> Vec3A {
-        Vec3A::new(0.0, self.viewport_height, 0.0)
-    }
-
-    pub fn lower_left_corner(&self) -> Vec3A {
-        self.origin
-            - self.horizontal_vector() / 2.0
-            - self.vertical_vector() / 2.0
-            - Vec3A::new(0.0, 0.0, self.focal_length)
     }
 }

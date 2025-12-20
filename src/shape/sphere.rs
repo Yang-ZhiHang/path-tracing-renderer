@@ -1,6 +1,6 @@
 use crate::math::Point3;
 use crate::math::Ray;
-use crate::object::hittable::{HitRecord, Hitable};
+use crate::shape::{HitRecord, Hitable};
 
 pub struct Sphere {
     center: Point3,
@@ -41,9 +41,8 @@ impl Hitable for Sphere {
 
         rec.t = root;
         rec.p = r.at(root);
-        // unit normal vector
-        rec.normal = (rec.p - self.center) / self.radius;
-        
+        rec.normal = (rec.p - self.center) / self.radius; // unit normal vector
+
         true
     }
 }
