@@ -18,22 +18,20 @@ impl Sphere {
 
 impl Hitable for Sphere {
     fn hit(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
-        // dst = A - C
-        let dst = r.origin() - self.center;
-        let a = r.direction().length_squared();
-        let half_b = r.direction().dot(dst);
-        let c = dst.length_squared() - self.radius * self.radius;
-        let discriminant = half_b * half_b - a * c;
+        // oc = A - C
+        let oc = r.origin - self.center;
+        let a = r.direction.length_squared();
+        let h = r.direction.dot(oc);
+        let c = oc.length_squared() - self.radius * self.radius;
+        let discriminant = h * h - a * c;
         if discriminant < 0.0 {
             return false;
         }
 
-        let sqrt_d = f32::sqrt(discriminant);
-
-        // Find the nearest root, start with (-b - sqrt_d)
-        let mut root = (-half_b - sqrt_d) / a;
+        let sqrt_d = discriminant.sqrt();
+        let mut root = (-h - sqrt_d) / a; // Find the nearest root, start with (-b-sqrt_d)
         if root <= t_min || root >= t_max {
-            root = (-half_b + sqrt_d) / a;
+            root = (-h + sqrt_d) / a;
             if root <= t_min || root >= t_max {
                 return false;
             }
@@ -41,7 +39,8 @@ impl Hitable for Sphere {
 
         rec.t = root;
         rec.p = r.at(root);
-        rec.normal = (rec.p - self.center) / self.radius; // unit normal vector
+        let normal = (rec.p - self.center) / self.radius;
+        rec.set_face_normal(r, normal);
 
         true
     }

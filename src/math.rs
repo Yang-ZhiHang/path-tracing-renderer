@@ -36,22 +36,22 @@ impl ColorExt for Color {
 }
 
 #[derive(Default)]
+/// A ray of light can be represented as: A + t*B
+/// where A is origin, B is direction, and t is a scalar
+/// that indicates how long the ray has traveled.
+/// For any given value of t, we can compute the point
+/// along the ray using the `at` method below.
 pub struct Ray {
+    /// The origin coordinate of light ray
     pub origin: Point3,
+
+    /// The direction vector of light ray
     pub direction: Point3,
 }
 
 impl Ray {
     pub fn new(origin: Point3, direction: Point3) -> Self {
         Ray { origin, direction }
-    }
-
-    pub fn origin(&self) -> Point3 {
-        self.origin
-    }
-
-    pub fn direction(&self) -> Point3 {
-        self.direction
     }
 
     pub fn at(&self, t: f32) -> Point3 {

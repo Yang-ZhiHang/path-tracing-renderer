@@ -1,4 +1,4 @@
-use crate::math::{Point3, Vec3};
+use crate::math::{Point3, Ray, Vec3};
 
 pub struct Camera {
     /// The original point of camera
@@ -38,5 +38,13 @@ impl Camera {
                 - vertical / 2.0
                 - Point3::new(0.0, 0.0, focal_length),
         }
+    }
+
+    /// Returns a ray start from origin according to u, v which ranged in [0, 1].
+    pub fn get_ray(&self, u: f32, v: f32) -> Ray {
+        Ray::new(
+            self.origin,
+            self.lower_left + u * self.horizontal + v * self.vertical - self.origin,
+        )
     }
 }

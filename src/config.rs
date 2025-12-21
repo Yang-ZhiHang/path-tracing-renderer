@@ -9,6 +9,8 @@ pub struct Config {
     aspect_height: u32,
     image_width: u32,
     output_path: String,
+    
+    pub samples_per_pixel: u32,
 }
 
 impl Config {
