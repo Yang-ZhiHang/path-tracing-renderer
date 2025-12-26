@@ -1,4 +1,5 @@
 use crate::{
+    aabb::Aabb,
     material::Material,
     math::{Point3, Ray, Vec3},
 };
@@ -8,10 +9,11 @@ pub mod sphere;
 
 #[derive(Default, Clone)]
 pub struct HitRecord {
-    /// The origin coordinate of light ray
+    /// The point of intersection
     pub p: Point3,
 
-    /// Time
+    /// Time which can be used to compute point along the ray
+    /// p = origin + t * direction
     pub t: f32,
 
     /// The normal vector of the intersection surfaec towards the incident ray
@@ -42,6 +44,9 @@ impl HitRecord {
 }
 
 pub trait Shape: Send + Sync {
-    /// Used for intersection informations of incident rays
+    /// Used for HitRecord of incident ray
     fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool;
+
+    /// Axis-aligned bounding box for acceleration structures
+    fn bounding_box(&self) -> Aabb;
 }

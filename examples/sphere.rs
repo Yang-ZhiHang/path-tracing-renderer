@@ -88,7 +88,8 @@ fn main() {
     );
 
     // Scene
-    let scene = random_scene();
+    let mut scene = random_scene();
+    scene.build_bvh();
 
     // Render
     let pb = ProgressBar::new(image_height as u64);

@@ -1,3 +1,4 @@
+use crate::aabb::Aabb;
 use crate::math::Point3;
 use crate::math::Ray;
 use crate::shape::{HitRecord, Shape};
@@ -53,5 +54,10 @@ impl Shape for Sphere {
         rec.set_face_normal(r, normal);
 
         true
+    }
+
+    fn bounding_box(&self) -> Aabb {
+        let radius_vec = Point3::splat(self.radius);
+        Aabb::new(self.center - radius_vec, self.center + radius_vec)
     }
 }

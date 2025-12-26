@@ -5,7 +5,6 @@ use crate::{
 };
 
 pub struct Dielectric {
-    /// The refractive index
     pub indices_of_refraction: f32,
 }
 
