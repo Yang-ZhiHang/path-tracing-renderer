@@ -37,7 +37,7 @@ impl Renderer {
             width: 800,
             height: 600,
             pb: None,
-            output_path: PathBuf::from("output/image.ppm"),
+            output_path: PathBuf::from("outputs/image.ppm"),
         }
     }
 
@@ -71,7 +71,7 @@ impl Renderer {
             return Color::black();
         }
         // t_min not set to zero to avoid shadow acne
-        if s.get_closest_intersect(r, 1e-5, f32::INFINITY, rec) {
+        if s.get_closest_intersect(r, 1e-3, f32::INFINITY, rec) {
             let mut attenuation = Color::default();
             let mut scatter = Ray::default();
             if rec
