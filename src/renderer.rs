@@ -2,7 +2,7 @@ use crate::camera::Camera;
 use crate::common::random;
 use crate::math::{Color, ColorExt, Ray};
 use crate::scene::Scene;
-use crate::shape::HitRecord;
+use crate::shape::{HitRecord, Hittable};
 use indicatif::ProgressBar;
 use rayon::prelude::*;
 use std::fs::File;
@@ -66,12 +66,12 @@ impl Renderer {
     }
 
     /// Trace the ray and return the color
-    pub fn trace_ray(r: &Ray, s: &Scene, depth: u32, rec: &mut HitRecord) -> Color {
+    pub fn trace_ray(r: &Ray, s: &dyn Hittable, depth: u32, rec: &mut HitRecord) -> Color {
         if depth <= 0 {
             return Color::black();
         }
         // t_min not set to zero to avoid shadow acne
-        if s.get_closest_intersect(r, 1e-3, f32::INFINITY, rec) {
+        if s.intersect(r, 1e-3, f32::INFINITY, rec) {
             let mut attenuation = Color::default();
             let mut scatter = Ray::default();
             if rec

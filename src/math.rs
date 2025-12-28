@@ -3,7 +3,6 @@ use glam::Vec3A;
 use rand::random_range;
 use std::f32::EPSILON;
 
-/// Offer more friendly alias
 pub type Vec3 = Vec3A;
 
 pub trait Vec3Ext {
@@ -53,7 +52,6 @@ impl Vec3Ext for Vec3 {
 
     #[inline]
     fn random_unit_vector() -> Vec3 {
-        // Self::random_range(-1.0, 1.0).normalize()
         Self::random_in_unit_sphere().normalize()
     }
 
@@ -113,24 +111,32 @@ impl ColorExt for Color {
 }
 
 #[derive(Default)]
-/// A ray of light can be represented as: A + t*B
-/// where A is origin, B is direction, and t is a scalar
-/// that indicates how long the ray has traveled.
-/// For any given value of t, we can compute the point
-/// along the ray using the `at` method below.
+/// A ray can be represented as: A + t*B where A is origin, B is direction, and t is a scalar
+/// that indicates how long the ray has traveled. For any given value of t, we can compute the
+/// point along the ray using the `at` method below.
 pub struct Ray {
-    /// The origin coordinate of light ray
+    /// The origin coordinate of ray
     pub origin: Point3,
 
-    /// The direction vector of light ray
+    /// The direction vector of ray
     pub direction: Vec3,
+
+    /// The time to define the position of moving objects. It can be understood as the ray
+    /// entering the camera at time t.
+    pub t: f32,
 }
 
 impl Ray {
-    pub fn new(origin: Point3, direction: Vec3) -> Self {
-        Ray { origin, direction }
+    /// Create a ray from origin, direction and time
+    pub fn new(origin: Point3, direction: Vec3, time: f32) -> Self {
+        Ray {
+            origin,
+            direction,
+            t: time,
+        }
     }
 
+    /// Get the point along the ray at time t.
     pub fn at(&self, t: f32) -> Point3 {
         self.origin + t * self.direction
     }

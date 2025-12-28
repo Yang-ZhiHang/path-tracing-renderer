@@ -1,12 +1,11 @@
 use crate::aabb::Aabb;
 use crate::math::Ray;
 use crate::object::Object;
-use crate::shape::HitRecord;
+use crate::shape::{HitRecord, Hittable};
 use rand::random_range;
 use std::cmp::Ordering;
 
-/// A node in the Bounding Volume Hierarchy (BVH)
-/// Used to accelerate ray-scene intersection tests: O(n) -> O(log n)
+/// A node in the Bounding Volume Hierarchy. Used to accelerate ray intersection: O(n) -> O(log n)
 pub enum BvhNode {
     Leaf {
         object: Object,
@@ -20,13 +19,13 @@ pub enum BvhNode {
 }
 
 impl BvhNode {
-    /// Build BVH from list of objects
+    /// Build BVH from list of objects.
     pub fn build(objects: Vec<Object>) -> Self {
         let mut objs = objects;
         Self::build_from_slice(&mut objs)
     }
 
-    /// Build BVH from slice of objects
+    /// Build BVH from slice of objects.
     fn build_from_slice(objects: &mut [Object]) -> Self {
         let axis = random_range(0..3);
         objects.sort_by(|a, b| {
@@ -70,10 +69,20 @@ impl BvhNode {
         }
     }
 
-    pub fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
+    /// Get bounding box of this node.
+    fn bbox(&self) -> Aabb {
+        match self {
+            BvhNode::Leaf { bbox, .. } => *bbox,
+            BvhNode::Node { bbox, .. } => *bbox,
+        }
+    }
+}
+
+impl Hittable for BvhNode {
+    fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
         match self {
             BvhNode::Leaf { object, bbox } => {
-                if !bbox.intersect(r, t_min, t_max) {
+                if !bbox.intersect(r, t_min, t_max, rec) {
                     return false;
                 }
                 let mut local_rec = HitRecord::new();
@@ -85,7 +94,7 @@ impl BvhNode {
                 false
             }
             BvhNode::Node { left, right, bbox } => {
-                if !bbox.intersect(r, t_min, t_max) {
+                if !bbox.intersect(r, t_min, t_max, rec) {
                     return false;
                 }
                 let mut hit_any = false;
@@ -103,13 +112,6 @@ impl BvhNode {
                 }
                 hit_any
             }
-        }
-    }
-
-    fn bbox(&self) -> Aabb {
-        match self {
-            BvhNode::Leaf { bbox, .. } => *bbox,
-            BvhNode::Node { bbox, .. } => *bbox,
         }
     }
 }

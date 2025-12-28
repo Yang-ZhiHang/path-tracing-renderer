@@ -1,3 +1,4 @@
+# Complie
 /target
 
 # Images
@@ -5,3 +6,6 @@
 *.ppm
 *.jpg
 *.png
+
+# Examples
+/examples

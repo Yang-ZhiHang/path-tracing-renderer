@@ -41,6 +41,7 @@ impl Material for Metal {
         *scatter = Ray::new(
             rec.p,
             reflect_direction + self.fuzz * Vec3::random_unit_vector(),
+            r_in.t,
         );
 
         // After we add fuzz, we need to ensure the scattered ray is still

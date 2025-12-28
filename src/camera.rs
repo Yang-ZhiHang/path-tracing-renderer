@@ -1,27 +1,33 @@
-use crate::math::{Point3, Ray, Vec3, Vec3Ext};
+use crate::{
+    common::random,
+    math::{Point3, Ray, Vec3, Vec3Ext},
+};
 
 pub struct Camera {
-    /// The original point of camera
+    /// The original point of camera.
     pub origin: Point3,
 
-    /// Width of viewport
+    /// Width of viewport.
     pub horizontal: Vec3,
 
-    /// Height of viewport
+    /// Height of viewport.
     pub vertical: Vec3,
 
-    /// The bottom left corner of viewport which centered on the origin
+    /// The bottom left corner of viewport which centered on the origin.
     pub lower_left: Point3,
 
+    /// Camera coordinate system basis vectors.
     pub u: Vec3,
     pub v: Vec3,
+
+    /// Lens radius for depth of field effect.
     pub lens_radius: f32,
 }
 
 impl Camera {
     pub fn new(
         look_from: Point3,
-        look_at: Point3,
+        look_to: Point3,
         vup: Vec3, // View up vector
         vfov: f32, // Vertical field-of-view in degrees
         aspect_ratio: f32,
@@ -34,7 +40,7 @@ impl Camera {
         let viewport_width = viewport_height * aspect_ratio;
 
         // Pixel coordinates
-        let w: Vec3 = (look_from - look_at).normalize();
+        let w: Vec3 = (look_from - look_to).normalize();
         let u: Vec3 = vup.cross(w).normalize();
         let v: Vec3 = w.cross(u);
 
@@ -54,13 +60,15 @@ impl Camera {
         }
     }
 
-    /// Obtain the ray direction of the pixel coordinate uv from the aperture
+    /// Obtain the ray of the pixel coordinate (u, v) from the aperture.
     pub fn get_ray(&self, u: f32, v: f32) -> Ray {
-        let r = self.lens_radius * Vec3::random_in_unit_disk();
-        let offset = self.u * r.x + self.v * r.y;
+        let mut lens_offset = self.lens_radius * Vec3::random_in_unit_disk();
+        lens_offset = self.u * lens_offset.x + self.v * lens_offset.y;
+        let shutter_time = random();
         Ray::new(
-            self.origin + offset,
-            self.lower_left + u * self.horizontal + v * self.vertical - self.origin - offset,
+            self.origin + lens_offset,
+            self.lower_left + u * self.horizontal + v * self.vertical - self.origin - lens_offset,
+            shutter_time,
         )
     }
 }

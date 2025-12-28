@@ -9,30 +9,31 @@ pub mod sphere;
 
 #[derive(Default, Clone)]
 pub struct HitRecord {
-    /// The point of intersection
+    /// The point of intersection.
     pub p: Point3,
 
-    /// Time which can be used to compute point along the ray
-    /// p = origin + t * direction
+    /// Time which can be used to compute point along the ray: p = origin + t * direction. This
+    /// attribute is more microscopic than the time of the `Ray` structure.
     pub t: f32,
 
-    /// The normal vector of the intersection surfaec towards the incident ray
+    /// The normal vector of the intersection surfaec towards the incident ray.
     pub normal: Vec3,
 
-    /// If the normal vector towards you
+    /// If the normal vector towards you. e.g. if the radius is negative, then the normal vector
+    /// is inverted.
     pub front_face: bool,
 
-    /// The material of intersect object
+    /// The material of intersect object.
     pub material: Option<Arc<dyn Material>>,
 }
 
 impl HitRecord {
-    /// Create a intersection record in default
+    /// Create a intersection record in default.
     pub fn new() -> Self {
         Default::default()
     }
 
-    /// Let normal vector face to the incident ray
+    /// Let normal vector face to the incident ray.
     pub fn set_face_normal(&mut self, r: &Ray, outward_normal: Vec3) {
         self.front_face = r.direction.dot(outward_normal) < 0.0;
         self.normal = if self.front_face {
@@ -43,10 +44,12 @@ impl HitRecord {
     }
 }
 
-pub trait Shape: Send + Sync {
-    /// Used for HitRecord of incident ray
+pub trait Hittable: Send + Sync {
+    /// Used for HitRecord of incident ray.
     fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool;
+}
 
-    /// Axis-aligned bounding box for acceleration structures
+pub trait Shape: Hittable {
+    /// The Aabb of the shape.
     fn bounding_box(&self) -> Aabb;
 }

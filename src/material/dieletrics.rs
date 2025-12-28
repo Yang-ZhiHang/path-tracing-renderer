@@ -49,7 +49,7 @@ impl Material for Dielectric {
         };
 
         *attenuation = Color::splat(1.0);
-        *scatter = Ray::new(rec.p, direction);
+        *scatter = Ray::new(rec.p, direction, rec.t);
         true
     }
 }
