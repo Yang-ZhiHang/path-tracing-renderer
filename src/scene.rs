@@ -1,3 +1,4 @@
+use crate::interval::Interval;
 use crate::shape::Hittable;
 use crate::{bvh::BvhNode, math::Ray, object::Object, shape::HitRecord};
 
@@ -17,18 +18,42 @@ impl Scene {
     }
 
     /// Add a Object to Scene.
-    pub fn add(&mut self, obj: Object) {
+    pub fn add(&mut self, obj: Object) -> &mut Self {
         self.objects.push(obj);
         self.bvh = None;
+        self
     }
 
     /// Add a list of Object to Scene.
-    pub fn add_list<I>(&mut self, obj_list: I)
+    pub fn add_list<I>(&mut self, obj_list: I) -> &mut Self
     where
         I: IntoIterator<Item = Object>,
     {
         self.objects.extend(obj_list);
         self.bvh = None;
+        self
+    }
+
+    /// Builder-style add that consumes and returns the Scene.
+    pub fn with(mut self, obj: Object) -> Self {
+        self.objects.push(obj);
+        self.bvh = None;
+        self
+    }
+
+    /// Builder-style add_list that consumes and returns the Scene.
+    pub fn with_list<I>(mut self, obj_list: I) -> Self
+    where
+        I: IntoIterator<Item = Object>,
+    {
+        self.objects.extend(obj_list);
+        self.bvh = None;
+        self
+    }
+
+    /// Consume the builder and return the Scene.
+    pub fn build(self) -> Self {
+        self
     }
 
     /// Build BVH from current objects which should call after scene setup.
@@ -43,15 +68,16 @@ impl Scene {
 
 impl Hittable for Scene {
     /// Get closest intersection of ray with intersectable objects.
-    fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         if let Some(bvh) = &self.bvh {
-            return bvh.intersect(r, t_min, t_max, rec);
+            return bvh.intersect(r, ray_t, rec);
         }
         let mut obj_rec = HitRecord::new();
         let mut hit_any = false;
-        let mut closest_so_far = t_max;
+        let mut closest_so_far = ray_t.max;
         for obj in &self.objects {
-            if obj.intersect(r, t_min, closest_so_far, &mut obj_rec) {
+            let search_interval = Interval::new(ray_t.min, closest_so_far);
+            if obj.intersect(r, search_interval, &mut obj_rec) {
                 hit_any = true;
                 closest_so_far = obj_rec.t;
                 *rec = obj_rec.clone();

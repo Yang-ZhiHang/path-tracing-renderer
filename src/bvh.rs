@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
 use crate::aabb::Aabb;
+use crate::interval::Interval;
 use crate::math::Ray;
 use crate::object::Object;
 use crate::shape::{Bounded, HitRecord, Hittable};
@@ -25,6 +26,31 @@ impl BvhNode {
         Self::build_from_slice(&mut objs)
     }
 
+    /// Compare the min value of AABB in given axis index.
+    pub fn box_compare(a: Aabb, b: Aabb, axis_index: usize) -> Ordering {
+        let a_axis_interval = a.axis_interval(axis_index);
+        let b_axis_interval = b.axis_interval(axis_index);
+        a_axis_interval
+            .min
+            .partial_cmp(&b_axis_interval.min)
+            .unwrap_or(Ordering::Equal)
+    }
+
+    /// Compare the min value of AABB in x axis.
+    pub fn box_x_compare(a: Aabb, b: Aabb) -> Ordering {
+        Self::box_compare(a, b, 0)
+    }
+
+    /// Compare the min value of AABB in y axis.
+    pub fn box_y_compare(a: Aabb, b: Aabb) -> Ordering {
+        Self::box_compare(a, b, 1)
+    }
+
+    /// Compare the min value of AABB in z axis.
+    pub fn box_z_compare(a: Aabb, b: Aabb) -> Ordering {
+        Self::box_compare(a, b, 2)
+    }
+
     /// Build BVH from slice of objects.
     fn build_from_slice(objects: &mut [Object]) -> Self {
         let (first, rest) = objects.split_first().unwrap();
@@ -32,13 +58,16 @@ impl BvhNode {
         for obj in rest {
             bbox = Aabb::surrounding_box(&bbox, &obj.bbox());
         }
-        let axis = bbox.longest_axis();
+        let axis_index = bbox.longest_axis();
+        let comparator = match axis_index {
+            0 => Self::box_x_compare,
+            1 => Self::box_y_compare,
+            _ => Self::box_z_compare,
+        };
         objects.sort_by(|a, b| {
             let box_a = a.bbox();
             let box_b = b.bbox();
-            box_a.min[axis]
-                .partial_cmp(&box_b.min[axis])
-                .unwrap_or(Ordering::Equal)
+            comparator(box_a, box_b)
         });
 
         match objects.len() {
@@ -76,28 +105,28 @@ impl BvhNode {
 }
 
 impl Hittable for BvhNode {
-    fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         match self {
             BvhNode::Leaf { object, bbox } => {
-                if bbox.intersect(r, t_min, t_max) && object.intersect(r, t_min, t_max, rec) {
+                if bbox.intersect(r, ray_t) && object.intersect(r, ray_t, rec) {
                     return true;
                 }
                 false
             }
             BvhNode::Node { left, right, bbox } => {
-                if !bbox.intersect(r, t_min, t_max) {
+                if !bbox.intersect(r, ray_t) {
                     return false;
                 }
                 let mut hit_any = false;
-                let mut closest_so_far = t_max;
                 let mut temp_rec = HitRecord::new();
+                let mut search_interval = ray_t;
 
-                if left.intersect(r, t_min, closest_so_far, &mut temp_rec) {
+                if left.intersect(r, search_interval, &mut temp_rec) {
                     hit_any = true;
-                    closest_so_far = temp_rec.t;
                     *rec = temp_rec.clone();
+                    search_interval.max = temp_rec.t;
                 }
-                if right.intersect(r, t_min, closest_so_far, &mut temp_rec) {
+                if right.intersect(r, search_interval, &mut temp_rec) {
                     hit_any = true;
                     *rec = temp_rec;
                 }

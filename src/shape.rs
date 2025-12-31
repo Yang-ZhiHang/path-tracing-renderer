@@ -2,10 +2,12 @@ use std::sync::Arc;
 
 use crate::{
     aabb::Aabb,
+    interval::Interval,
     material::Material,
     math::{Point3, Ray, Vec3},
 };
 
+pub mod quad;
 pub mod sphere;
 
 #[derive(Default, Clone)]
@@ -26,6 +28,10 @@ pub struct HitRecord {
 
     /// The material of intersect object.
     pub material: Option<Arc<dyn Material>>,
+
+    /// The coordinates of the spherical surface mapping to the texture map
+    pub u: f32,
+    pub v: f32,
 }
 
 impl HitRecord {
@@ -47,7 +53,7 @@ impl HitRecord {
 
 pub trait Hittable: Send + Sync {
     /// Used for HitRecord of incident ray.
-    fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool;
+    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool;
 }
 
 pub trait Bounded: Hittable {

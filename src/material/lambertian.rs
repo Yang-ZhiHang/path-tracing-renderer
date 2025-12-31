@@ -44,7 +44,7 @@ impl Material for Lambertian {
         attenuation: &mut Color,
         scatter: &mut Ray,
     ) -> bool {
-        *attenuation = self.tex.get_color(rec.normal);
+        *attenuation = self.tex.sample(rec.u, rec.v, rec.normal);
         *scatter = Ray::new(rec.p, rec.normal + Vec3::random_unit_vector(), r_in.t);
         true
     }

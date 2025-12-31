@@ -1,4 +1,3 @@
-use std::f32::consts::PI;
 use std::path::Path;
 
 use image::{DynamicImage, ImageReader};
@@ -26,13 +25,7 @@ impl Texture for ImageTexture {
     /// Get the sphere coordinates u, v which ranged in [0, 1) from intersection point.
     /// Theta is the angle from pole -Y axis to +Y axis. And phi is the angle from -X axis to
     /// +Z axis and then to -X axis.
-    fn get_color(&self, p: Vec3) -> Color {
-        // Normalize to make UV mapping independent of radius length
-        let p = p.normalize();
-        let phi = (-p.z).atan2(p.x) + PI;
-        let theta = (-p.y).acos();
-        let u = phi / (2.0 * PI);
-        let v = theta / PI;
+    fn sample(&self, u: f32, v: f32, _p: Vec3) -> Color {
         self.image.sample(u, v)
     }
 }

@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use crate::camera::Camera;
 use crate::common::random;
+use crate::interval::Interval;
 use crate::math::{Color, ColorExt, Ray};
 use crate::scene::Scene;
 use crate::shape::{HitRecord, Hittable};
@@ -71,8 +72,8 @@ impl Renderer {
         if depth <= 0 {
             return Color::black();
         }
-        // t_min not set to zero to avoid shadow acne
-        if s.intersect(r, 1e-3, f32::INFINITY, rec) {
+        // Start ray interval above zero to avoid shadow acne
+        if s.intersect(r, Interval::new(1e-3, f32::INFINITY), rec) {
             let mut attenuation = Color::default();
             let mut scatter = Ray::default();
             if rec

@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use crate::{
     aabb::Aabb,
+    interval::Interval,
     material::{Material, lambertian::Lambertian},
+    math::Ray,
     shape::{Bounded, HitRecord, Hittable},
 };
 
@@ -39,9 +41,9 @@ impl Object {
 
 impl Hittable for Object {
     /// Get HitRecord of ray with object
-    fn intersect(&self, r: &crate::math::Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         rec.material = Some(self.material.clone());
-        self.shape.intersect(r, t_min, t_max, rec)
+        self.shape.intersect(r, ray_t, rec)
     }
 }
 

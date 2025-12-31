@@ -14,7 +14,7 @@ impl SolidColor {
 }
 
 impl Texture for SolidColor {
-    fn get_color(&self,  _p: Point3) -> Color {
+    fn sample(&self, _u: f32, _v: f32, _p: Point3) -> Color {
         self.albedo
     }
 }

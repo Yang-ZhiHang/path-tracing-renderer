@@ -1,6 +1,7 @@
 use std::f32::consts::PI;
 
 use crate::aabb::Aabb;
+use crate::interval::Interval;
 use crate::math::Point3;
 use crate::math::Ray;
 use crate::math::Vec3;
@@ -27,13 +28,13 @@ impl Sphere {
         let radius_vec = Point3::splat(r);
         let (center_direction, aabb) = match center_to {
             Some(ct) => {
-                let box_from = Aabb::new(center_from - radius_vec, center_from + radius_vec);
-                let box_to = Aabb::new(ct - radius_vec, ct + radius_vec);
+                let box_from = Aabb::from_points(center_from - radius_vec, center_from + radius_vec);
+                let box_to = Aabb::from_points(ct - radius_vec, ct + radius_vec);
                 (ct - center_from, Aabb::surrounding_box(&box_from, &box_to))
             }
             None => (
                 Vec3::ZERO,
-                Aabb::new(center_from - radius_vec, center_from + radius_vec),
+                Aabb::from_points(center_from - radius_vec, center_from + radius_vec),
             ),
         };
         Sphere {
@@ -42,10 +43,20 @@ impl Sphere {
             aabb,
         }
     }
+
+    pub fn get_sphere_uv(p: Point3) -> (f32, f32) {
+        // Normalize to make UV mapping independent of radius length
+        let p = p.normalize();
+        let phi = (-p.z).atan2(p.x) + PI;
+        let theta = (-p.y).acos();
+        let u = phi / (2.0 * PI);
+        let v = theta / PI;
+        (u, v)
+    }
 }
 
 impl Hittable for Sphere {
-    fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         // oc = A - C
         let current_center = self.center.at(r.t);
         let oc = r.origin - current_center;
@@ -59,9 +70,9 @@ impl Hittable for Sphere {
 
         let sqrt_d = discriminant.sqrt();
         let mut root = (-h - sqrt_d) / a; // Find the nearest root, start with (-b-sqrt_d)
-        if root <= t_min || root >= t_max {
+        if !ray_t.contains(root) {
             root = (-h + sqrt_d) / a;
-            if root <= t_min || root >= t_max {
+            if !ray_t.contains(root) {
                 return false;
             }
         }
@@ -71,6 +82,7 @@ impl Hittable for Sphere {
         // If radius is negative, the normal is inverted. Application: hollow glass sphere.
         let normal = (rec.p - current_center) / self.radius;
         rec.set_face_normal(r, normal);
+        (rec.u, rec.v) = Self::get_sphere_uv(normal);
 
         true
     }
