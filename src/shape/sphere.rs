@@ -1,9 +1,11 @@
+use std::f32::consts::PI;
+
 use crate::aabb::Aabb;
 use crate::math::Point3;
 use crate::math::Ray;
 use crate::math::Vec3;
 use crate::shape::Hittable;
-use crate::shape::{HitRecord, Shape};
+use crate::shape::{Bounded, HitRecord};
 
 pub struct Sphere {
     /// The center point of the sphere.
@@ -23,25 +25,21 @@ impl Sphere {
         // Use absolute radius so negative-radius spheres still produce a valid box
         let r = radius.abs();
         let radius_vec = Point3::splat(r);
-        match center_to {
+        let (center_direction, aabb) = match center_to {
             Some(ct) => {
                 let box_from = Aabb::new(center_from - radius_vec, center_from + radius_vec);
                 let box_to = Aabb::new(ct - radius_vec, ct + radius_vec);
-                let aabb = Aabb::surrounding_box(&box_from, &box_to);
-                Sphere {
-                    center: Ray::new(center_from, ct - center_from, 0.0),
-                    radius,
-                    aabb,
-                }
+                (ct - center_from, Aabb::surrounding_box(&box_from, &box_to))
             }
-            None => {
-                let aabb = Aabb::new(center_from - radius_vec, center_from + radius_vec);
-                Sphere {
-                    center: Ray::new(center_from, Vec3::ZERO, 0.0),
-                    radius,
-                    aabb,
-                }
-            }
+            None => (
+                Vec3::ZERO,
+                Aabb::new(center_from - radius_vec, center_from + radius_vec),
+            ),
+        };
+        Sphere {
+            center: Ray::new(center_from, center_direction, 0.0),
+            radius,
+            aabb,
         }
     }
 }
@@ -69,7 +67,7 @@ impl Hittable for Sphere {
         }
 
         rec.t = root;
-        rec.p = r.at(rec.t);
+        rec.p = r.at(root);
         // If radius is negative, the normal is inverted. Application: hollow glass sphere.
         let normal = (rec.p - current_center) / self.radius;
         rec.set_face_normal(r, normal);
@@ -78,8 +76,8 @@ impl Hittable for Sphere {
     }
 }
 
-impl Shape for Sphere {
-    fn bounding_box(&self) -> Aabb {
+impl Bounded for Sphere {
+    fn bbox(&self) -> Aabb {
         self.aabb
     }
 }

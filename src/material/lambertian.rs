@@ -1,23 +1,38 @@
+use std::sync::Arc;
+
 use crate::material::Material;
 use crate::math::{Color, Ray, Vec3, Vec3Ext};
+use crate::shape::HitRecord;
+use crate::texture::Texture;
+use crate::texture::solid_color::SolidColor;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct Lambertian {
-    /// The reflectivity to different colors
-    pub albedo: Color,
+    /// The texture representing the albedo of the material
+    pub tex: Arc<dyn Texture>,
 }
 
 impl Lambertian {
     /// Create a lambertian material from albedo
     pub fn new(albedo: Color) -> Self {
-        Self { albedo }
+        Self {
+            tex: Arc::new(SolidColor::new(albedo)),
+        }
     }
 
     /// Create a default lambertian material with gray albedo
     pub fn default() -> Self {
         Self {
-            albedo: Color::splat(0.5),
+            tex: Arc::new(SolidColor::new(Color::splat(0.5))),
         }
+    }
+
+    /// Create a lambertian material from texture
+    pub fn from_texture<T>(tex: T) -> Self
+    where
+        T: Texture + 'static,
+    {
+        Self { tex: Arc::new(tex) }
     }
 }
 
@@ -25,11 +40,11 @@ impl Material for Lambertian {
     fn scatter(
         &self,
         r_in: &Ray,
-        rec: &crate::shape::HitRecord,
+        rec: &HitRecord,
         attenuation: &mut Color,
         scatter: &mut Ray,
     ) -> bool {
-        *attenuation = self.albedo;
+        *attenuation = self.tex.get_color(rec.normal);
         *scatter = Ray::new(rec.p, rec.normal + Vec3::random_unit_vector(), r_in.t);
         true
     }

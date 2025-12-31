@@ -9,3 +9,4 @@ pub mod object;
 pub mod renderer;
 pub mod scene;
 pub mod shape;
+pub mod texture;

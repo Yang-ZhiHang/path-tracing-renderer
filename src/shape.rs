@@ -1,9 +1,10 @@
+use std::sync::Arc;
+
 use crate::{
     aabb::Aabb,
     material::Material,
     math::{Point3, Ray, Vec3},
 };
-use std::sync::Arc;
 
 pub mod sphere;
 
@@ -49,7 +50,7 @@ pub trait Hittable: Send + Sync {
     fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool;
 }
 
-pub trait Shape: Hittable {
-    /// The Aabb of the shape.
-    fn bounding_box(&self) -> Aabb;
+pub trait Bounded: Hittable {
+    /// The bounding box of the shape.
+    fn bbox(&self) -> Aabb;
 }

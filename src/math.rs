@@ -1,7 +1,8 @@
-use crate::common::random;
 use glam::Vec3A;
 use rand::random_range;
 use std::f32::EPSILON;
+
+use crate::common::random;
 
 pub type Vec3 = Vec3A;
 

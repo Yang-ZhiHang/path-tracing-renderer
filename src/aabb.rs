@@ -1,9 +1,6 @@
-use crate::{
-    math::{Point3, Ray},
-    shape::{HitRecord, Hittable},
-};
+use crate::math::{Point3, Ray};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 /// Axis-Aligned Bounding Box.
 pub struct Aabb {
     pub min: Point3,
@@ -22,10 +19,9 @@ impl Aabb {
         let max: Point3 = box0.max.max(box1.max);
         Aabb::new(min, max)
     }
-}
 
-impl Hittable for Aabb {
-    fn intersect(&self, r: &Ray, mut t_min: f32, mut t_max: f32, _rec: &mut HitRecord) -> bool {
+    /// Check if ray intersects with AABB.
+    pub fn intersect(&self, r: &Ray, mut t_min: f32, mut t_max: f32) -> bool {
         for axis in 0..3 {
             let inv_d = 1.0 / r.direction[axis];
             let t0 = (self.min[axis] - r.origin[axis]) * inv_d;
@@ -38,5 +34,20 @@ impl Hittable for Aabb {
             }
         }
         true
+    }
+
+    /// Get the longest axis of the AABB: 0 for x, 1 for y, 2 for z.
+    pub fn longest_axis(&self) -> usize {
+        let x = self.max.x - self.min.x;
+        let y = self.max.y - self.min.y;
+        let z = self.max.z - self.min.z;
+
+        if x >= y && x >= z {
+            0
+        } else if y >= z {
+            1
+        } else {
+            2
+        }
     }
 }

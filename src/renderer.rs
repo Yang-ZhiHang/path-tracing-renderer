@@ -1,13 +1,14 @@
-use crate::camera::Camera;
-use crate::common::random;
-use crate::math::{Color, ColorExt, Ray};
-use crate::scene::Scene;
-use crate::shape::{HitRecord, Hittable};
 use indicatif::ProgressBar;
 use rayon::prelude::*;
 use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
+
+use crate::camera::Camera;
+use crate::common::random;
+use crate::math::{Color, ColorExt, Ray};
+use crate::scene::Scene;
+use crate::shape::{HitRecord, Hittable};
 
 pub struct Renderer {
     /// The camera to use

@@ -1,9 +1,9 @@
+use std::cmp::Ordering;
+
 use crate::aabb::Aabb;
 use crate::math::Ray;
 use crate::object::Object;
-use crate::shape::{HitRecord, Hittable};
-use rand::random_range;
-use std::cmp::Ordering;
+use crate::shape::{Bounded, HitRecord, Hittable};
 
 /// A node in the Bounding Volume Hierarchy. Used to accelerate ray intersection: O(n) -> O(log n)
 pub enum BvhNode {
@@ -27,10 +27,15 @@ impl BvhNode {
 
     /// Build BVH from slice of objects.
     fn build_from_slice(objects: &mut [Object]) -> Self {
-        let axis = random_range(0..3);
+        let (first, rest) = objects.split_first().unwrap();
+        let mut bbox = first.bbox();
+        for obj in rest {
+            bbox = Aabb::surrounding_box(&bbox, &obj.bbox());
+        }
+        let axis = bbox.longest_axis();
         objects.sort_by(|a, b| {
-            let box_a = a.bounding_box();
-            let box_b = b.bounding_box();
+            let box_a = a.bbox();
+            let box_b = b.bbox();
             box_a.min[axis]
                 .partial_cmp(&box_b.min[axis])
                 .unwrap_or(Ordering::Equal)
@@ -40,7 +45,7 @@ impl BvhNode {
             0 => panic!("BVH build called with empty object list"),
             1 => {
                 let obj = objects[0].clone();
-                let bbox = obj.bounding_box();
+                let bbox = obj.bbox();
                 BvhNode::Leaf { object: obj, bbox }
             }
             2 => {
@@ -68,33 +73,19 @@ impl BvhNode {
             }
         }
     }
-
-    /// Get bounding box of this node.
-    fn bbox(&self) -> Aabb {
-        match self {
-            BvhNode::Leaf { bbox, .. } => *bbox,
-            BvhNode::Node { bbox, .. } => *bbox,
-        }
-    }
 }
 
 impl Hittable for BvhNode {
     fn intersect(&self, r: &Ray, t_min: f32, t_max: f32, rec: &mut HitRecord) -> bool {
         match self {
             BvhNode::Leaf { object, bbox } => {
-                if !bbox.intersect(r, t_min, t_max, rec) {
-                    return false;
-                }
-                let mut local_rec = HitRecord::new();
-                local_rec.material = Some(object.material.clone());
-                if object.intersect(r, t_min, t_max, &mut local_rec) {
-                    *rec = local_rec;
+                if bbox.intersect(r, t_min, t_max) && object.intersect(r, t_min, t_max, rec) {
                     return true;
                 }
                 false
             }
             BvhNode::Node { left, right, bbox } => {
-                if !bbox.intersect(r, t_min, t_max, rec) {
+                if !bbox.intersect(r, t_min, t_max) {
                     return false;
                 }
                 let mut hit_any = false;
@@ -112,6 +103,16 @@ impl Hittable for BvhNode {
                 }
                 hit_any
             }
+        }
+    }
+}
+
+impl Bounded for BvhNode {
+    /// Get bounding box of this node.
+    fn bbox(&self) -> Aabb {
+        match self {
+            BvhNode::Leaf { bbox, .. } => *bbox,
+            BvhNode::Node { bbox, .. } => *bbox,
         }
     }
 }
