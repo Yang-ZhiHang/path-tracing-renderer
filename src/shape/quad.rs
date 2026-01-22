@@ -3,19 +3,26 @@ use std::f32;
 use crate::{
     aabb::Aabb,
     interval::Interval,
-    math::{Point3, Ray, Vec3},
+    math::{Point3, Ray, Vec3, random},
     shape::{Bounded, HitRecord, Hittable},
 };
 
 #[allow(non_snake_case)]
 pub struct Quad {
-    /// The origin and non-collinear vector u, v could define a plane
+    /// The origin of the quadrilateral plane.
     pub origin: Point3,
+
+    /// The basis vector u defines a x-aixs of the plane.
     pub u: Vec3,
+
+    /// The basis vector v defines a y-aixs of the plane.
     pub v: Vec3,
 
-    /// The normal vector of the quad plane
+    /// The normalized normal vector of the quad plane.
     pub normal: Vec3,
+
+    /// The area of the limited plane.
+    pub area: f32,
 
     /// Plane constant in Ax+By+Cz=D
     pub D: f32,
@@ -35,6 +42,7 @@ pub struct Quad {
 impl Quad {
     pub fn new(origin: Point3, u: Vec3, v: Vec3) -> Self {
         let n = u.cross(v);
+        let area = n.length();
         let normal = n.normalize();
         let D = normal.dot(origin);
         let w = n / (n.dot(n));
@@ -48,6 +56,7 @@ impl Quad {
             u,
             v,
             normal,
+            area,
             D,
             w,
             aabb,
@@ -94,6 +103,23 @@ impl Hittable for Quad {
         rec.set_face_normal(r, self.normal);
 
         true
+    }
+
+    /// Return the PDF of the hittable shape.
+    fn pdf(&self, r_out: &Ray) -> f32 {
+        let mut rec = HitRecord::default();
+        if !self.intersect(r_out, Interval::new(1e-3, f32::INFINITY), &mut rec) {
+            return 1.0 / (2.0 * f32::consts::PI);
+        }
+        let distance_squared = (rec.p - r_out.ori).length_squared();
+        let cos = -r_out.dir.normalize().dot(self.normal);
+        distance_squared / (self.area * cos)
+    }
+
+    /// Return a random ray from given point to the hittable shape.
+    fn random(&self, origin: Vec3) -> Vec3 {
+        let p = self.origin + random() * self.u + random() * self.v;
+        p - origin
     }
 }
 

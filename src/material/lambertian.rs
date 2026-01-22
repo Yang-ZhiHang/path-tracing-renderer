@@ -56,7 +56,7 @@ impl Material for Lambertian {
         Some((attenuation, scatter))
     }
 
-    fn scatter_pdf(&self, _r_in: &Ray, r_out: &Ray, rec: &HitRecord) -> f32 {
+    fn brdf(&self, _r_in: &Ray, r_out: &Ray, rec: &HitRecord) -> f32 {
         let cos = rec.normal.dot(r_out.dir.normalize());
         cos / f32::consts::PI
     }

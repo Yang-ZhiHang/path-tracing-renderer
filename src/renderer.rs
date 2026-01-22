@@ -93,22 +93,29 @@ impl Renderer {
 
         // The material could use `unwrap` instead of `map_or` because it will not be `None` if
         // scene.intersect is true.
-        if let Some((attenuation, scatter)) = rec.material.as_ref().unwrap().scatter(ray, rec) {
-            let scatter_pdf = rec
-                .material
-                .as_ref()
-                .unwrap()
-                .scatter_pdf(ray, &scatter, rec);
-            let pdf_value = scatter_pdf;
-            let color_from_scatter =
-                attenuation * scatter_pdf * self.trace_ray(&scatter, num_bounces - 1, rec)
-                    / pdf_value;
+        match rec.material.as_ref().unwrap().scatter(ray, rec) {
+            Some((attenuation, mut r_out)) => {
+                let light = &self.scene.lights[0];
+                r_out = Ray::new(rec.p, light.shape.random(rec.p), ray.t);
+                let pdf = light.shape.pdf(&r_out);
+                let f_r = rec.material.as_ref().unwrap().brdf(ray, &r_out, rec);
+                let color_from_scatter =
+                    attenuation * f_r * self.trace_ray(&r_out, num_bounces - 1, rec) / pdf;
 
-            color_from_emission + color_from_scatter
-        } else {
-            color_from_emission
+                color_from_emission + color_from_scatter
+            }
+            None => color_from_emission,
         }
     }
+
+    // /// Sample the ray towards lights and return the scattered ray and pdf.
+    // fn sample_lights(&self, rec: &HitRecord, shutter_time: f32) -> (Ray, Color) {
+    //     for light in &self.scene.lights {
+    //         let r_out = light.shape.random(rec);
+    //         let pdf = light.shape.pdf(&Ray::new(rec.p, r_out, shutter_time));
+    //     }
+    //     todo!()
+    // }
 
     /// Get the pixel color of a specified location in film plane.
     pub fn get_color(&self, col: u32, row: u32, iterations: u32) -> Color {

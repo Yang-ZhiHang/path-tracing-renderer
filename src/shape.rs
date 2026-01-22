@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{f32, sync::Arc};
 
 use glam::{Mat3A, Mat4, Vec4, Vec4Swizzles};
 
@@ -17,6 +17,16 @@ pub mod sphere;
 pub trait Hittable: Send + Sync {
     /// Used for `HitRecord` of incident ray.
     fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool;
+
+    /// Return the PDF of the hittable shape.
+    fn pdf(&self, _r_out: &Ray) -> f32 {
+        1.0 / (2.0 * f32::consts::PI)
+    }
+
+    /// Return a random ray from given point to the hittable shape.
+    fn random(&self, _origin: Vec3) -> Vec3 {
+        Vec3::new(1.0, 0.0, 0.0)
+    }
 }
 
 pub trait Bounded: Hittable {

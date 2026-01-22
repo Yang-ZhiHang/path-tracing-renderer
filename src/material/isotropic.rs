@@ -47,7 +47,7 @@ impl Material for Isotropic {
         Some((attenuation, scatter))
     }
     
-    fn scatter_pdf(&self, _r_in: &Ray, _r_out: &Ray, _rec: &HitRecord) -> f32 {
+    fn brdf(&self, _r_in: &Ray, _r_out: &Ray, _rec: &HitRecord) -> f32 {
         1.0 / (4.0 * f32::consts::PI)
     }
 }

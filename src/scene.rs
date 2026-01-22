@@ -6,6 +6,9 @@ pub struct Scene {
     /// The list of objects in the scene.
     pub objects: Vec<Object>,
 
+    /// The list of lights in the scene.
+    pub lights: Vec<Object>,
+
     /// The BVH for the scene.
     pub bvh: Option<BvhNode>,
 
@@ -14,7 +17,7 @@ pub struct Scene {
 }
 
 impl Scene {
-    /// Create a empty Object list for Scene.
+    /// Create a empty scene.
     pub fn new() -> Self {
         Default::default()
     }
@@ -42,19 +45,36 @@ impl Scene {
         self
     }
 
-    /// Add a Object to Scene.
+    /// Add a `Object` to Scene.
     pub fn add(&mut self, obj: Object) -> &mut Self {
         self.objects.push(obj);
         self.bvh = None;
         self
     }
 
-    /// Add a list of Object to Scene.
+    /// Add a list of `Object` to Scene.
     pub fn add_list<I>(&mut self, obj_list: I) -> &mut Self
     where
         I: IntoIterator<Item = Object>,
     {
         self.objects.extend(obj_list);
+        self.bvh = None;
+        self
+    }
+
+    /// Add a Light to Scene.
+    pub fn add_light(&mut self, light: Object) -> &mut Self {
+        self.lights.push(light);
+        self.bvh = None;
+        self
+    }
+
+    /// Add a list of Light to Scene.
+    pub fn add_lights<I>(&mut self, lights: I) -> &mut Self
+    where
+        I: IntoIterator<Item = Object>,
+    {
+        self.lights.extend(lights);
         self.bvh = None;
         self
     }
