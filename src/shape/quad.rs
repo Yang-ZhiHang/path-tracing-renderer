@@ -112,7 +112,7 @@ impl Hittable for Quad {
             return 1.0 / (2.0 * f32::consts::PI);
         }
         let distance_squared = (rec.p - r_out.ori).length_squared();
-        let cos = -r_out.dir.normalize().dot(self.normal);
+        let cos = r_out.dir.normalize().dot(self.normal).abs();
         distance_squared / (self.area * cos)
     }
 
