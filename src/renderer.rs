@@ -111,32 +111,50 @@ impl Renderer {
         //     None => color_from_emission,
         // }
 
-        // Sample two kinds of light: directive light, indirective light
-        let color_from_lights = self.sample_lights(rec.material(), rec.p, ray.t);
-        todo!()
+        let mut color = rec.material().emittance * rec.material().color;
+        // Sample two kinds of light: directive light, indirective light.
+        // 1. directive light. The light only bounces one time.
+        color += self.sample_lights(rec.material(), rec.p, ray.t, rec.normal, -ray.dir);
+        // 2. indirective light including self-luminescence and ambient light.
+        if let Some((l, pdf)) = rec.material().scatter() {
+            let f = rec.material().bsdf(l, -ray.dir, rec.normal);
+            color += f * self.trace_ray(ray, num_bounces - 1, rec) * rec.normal.dot(l) / pdf;
+        }
+        color
     }
 
-    /// Sample the ray towards lights and return the color.
-    fn sample_lights(&self, material: &Material, pos: Vec3, shutter_time: f32) -> Color {
+    /// Sample the ray towards lights in the scene for the given `world_pos` and return the color.
+    fn sample_lights(
+        &self,
+        material: &Material,
+        pos: Vec3,
+        shutter_time: f32,
+        n: Vec3,
+        ray_view: Vec3,
+    ) -> Color {
         let mut color_from_lights = Color::ZERO;
         for light in &self.scene.lights {
             match light {
-                Light::Ambient(ambient_color) => {
-                    color_from_lights += ambient_color * material.color;
+                Light::Ambient(color_ambient) => {
+                    color_from_lights += color_ambient * material.color;
                 }
                 _ => {
-                    let (light_color, ray_light, t) = light.illuminate(pos);
+                    let (intensity, ray_light, t_micro) = light.illuminate(pos);
                     let mut rec = HitRecord::default();
                     if !self.intersect(
                         &Ray::new(pos, ray_light, shutter_time),
                         Interval::new(1e-3, f32::INFINITY),
                         &mut rec,
                     ) {
-                        // The light can't reach the `pos` position.
-                        if rec.t > t {
+                        if rec.t > t_micro {
+                            // The light can't reach the world position `pos`.
                             continue;
                         }
-                        color_from_lights += light_color * material.color;
+                        let f = material.bsdf(ray_light, -ray_view, n);
+
+                        // The integrand of monte carlo integral.
+                        // intensity equals to (attenuation * pdf)
+                        color_from_lights += f * intensity * n.dot(ray_light);
                     }
                 }
             }
