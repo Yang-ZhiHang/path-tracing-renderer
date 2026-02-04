@@ -2,8 +2,9 @@ use std::sync::Arc;
 
 use crate::{
     aabb::Aabb,
+    color,
     interval::Interval,
-    material::{Material, lambertian::Lambertian},
+    material::Material,
     math::Ray,
     shape::{Bounded, HitRecord, Hittable},
 };
@@ -14,7 +15,7 @@ pub struct Object {
     pub shape: Arc<dyn Bounded>,
 
     /// The material of object
-    pub material: Arc<dyn Material>,
+    pub material: Arc<Material>,
 }
 
 impl Object {
@@ -25,22 +26,19 @@ impl Object {
     {
         Self {
             shape: Arc::new(shape),
-            material: Arc::new(Lambertian::default()),
+            material: Arc::new(Material::diffuse(color::GREY)),
         }
     }
 
     /// Set material for object
-    pub fn material<T>(mut self, material: T) -> Self
-    where
-        T: Material + 'static,
-    {
+    pub fn material(mut self, material: Material) -> Self {
         self.material = Arc::new(material);
         self
     }
 }
 
 impl Hittable for Object {
-    /// Get HitRecord of ray with object
+    /// Set the material for `rec` and call `intersect` of the member `shape`.
     fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
         rec.material = Some(self.material.clone());
         self.shape.intersect(r, ray_t, rec)

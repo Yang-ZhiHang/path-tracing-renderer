@@ -53,7 +53,7 @@ pub struct HitRecord {
     pub front_face: bool,
 
     /// The material of intersect object.
-    pub material: Option<Arc<dyn Material>>,
+    pub material: Option<Arc<Material>>,
 
     /// The coordinates of the object surface mapping to the texture map
     pub u: f32,
@@ -69,6 +69,10 @@ impl HitRecord {
         } else {
             -outward_normal
         };
+    }
+
+    pub fn material(&self) -> &Material {
+        self.material.as_ref().unwrap()
     }
 }
 

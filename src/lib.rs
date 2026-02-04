@@ -4,6 +4,7 @@ pub mod bvh;
 pub mod camera;
 pub mod color;
 pub mod interval;
+pub mod light;
 pub mod material;
 pub mod math;
 pub mod object;

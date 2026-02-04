@@ -1,4 +1,5 @@
 use crate::color::Color;
+use crate::light::Light;
 use crate::{bvh::BvhNode, object::Object};
 
 #[derive(Default)]
@@ -7,7 +8,7 @@ pub struct Scene {
     pub objects: Vec<Object>,
 
     /// The list of lights in the scene.
-    pub lights: Vec<Object>,
+    pub lights: Vec<Light>,
 
     /// The BVH for the scene.
     pub bvh: Option<BvhNode>,
@@ -29,31 +30,14 @@ impl Scene {
     }
 
     /// Builder-style add that consumes and returns the Scene.
-    pub fn with(mut self, obj: Object) -> Self {
+    pub fn with_obj(mut self, obj: Object) -> Self {
         self.objects.push(obj);
         self.bvh = None;
         self
     }
 
-    /// Builder-style add_list that consumes and returns the Scene.
-    pub fn with_list<I>(mut self, obj_list: I) -> Self
-    where
-        I: IntoIterator<Item = Object>,
-    {
-        self.objects.extend(obj_list);
-        self.bvh = None;
-        self
-    }
-
-    /// Add a `Object` to Scene.
-    pub fn add(&mut self, obj: Object) -> &mut Self {
-        self.objects.push(obj);
-        self.bvh = None;
-        self
-    }
-
-    /// Add a list of `Object` to Scene.
-    pub fn add_list<I>(&mut self, obj_list: I) -> &mut Self
+    /// Builder-style batch add that consumes and returns the Scene.
+    pub fn with_obj_list<I>(mut self, obj_list: I) -> Self
     where
         I: IntoIterator<Item = Object>,
     {
@@ -63,24 +47,19 @@ impl Scene {
     }
 
     /// Add a Light to Scene.
-    pub fn add_light(&mut self, light: Object) -> &mut Self {
+    pub fn with_light(mut self, light: Light) -> Self {
         self.lights.push(light);
         self.bvh = None;
         self
     }
 
     /// Add a list of Light to Scene.
-    pub fn add_lights<I>(&mut self, lights: I) -> &mut Self
+    pub fn with_lights<I>(mut self, lights: I) -> Self
     where
-        I: IntoIterator<Item = Object>,
+        I: IntoIterator<Item = Light>,
     {
         self.lights.extend(lights);
         self.bvh = None;
-        self
-    }
-
-    /// Consume the builder and return the Scene.
-    pub const fn build(self) -> Self {
         self
     }
 

@@ -1,3 +1,5 @@
+use std::f32;
+
 use image::RgbImage;
 use indicatif::ProgressBar;
 use rayon::prelude::*;
@@ -6,8 +8,10 @@ use crate::buffer::Buffer;
 use crate::camera::Camera;
 use crate::color::{self, Color};
 use crate::interval::Interval;
-use crate::math::Ray;
+use crate::light::Light;
+use crate::material::Material;
 use crate::math::random;
+use crate::math::{Ray, Vec3};
 use crate::scene::Scene;
 use crate::shape::{HitRecord, Hittable};
 
@@ -84,38 +88,61 @@ impl Renderer {
             return color::BLACK;
         }
 
-        // Start ray interval above zero to avoid shadow acne.
+        // Start ray interval above zero (1e-3) to avoid shadow acne.
         if !self.intersect(ray, Interval::new(1e-3, f32::INFINITY), rec) {
             return self.scene.background;
         }
 
-        let color_from_emission = rec.material.as_ref().unwrap().emit(rec.u, rec.v, rec.p);
+        // let color_from_emission = rec.material.as_ref().unwrap().emit(rec.u, rec.v, rec.p);
 
-        // The material could use `unwrap` instead of `map_or` because it will not be `None` if
-        // scene.intersect is true.
-        match rec.material.as_ref().unwrap().scatter(ray, rec) {
-            Some((attenuation, mut r_out)) => {
-                let light = &self.scene.lights[0];
-                r_out = Ray::new(rec.p, light.shape.random(rec.p), ray.t);
-                let pdf = light.shape.pdf(&r_out);
-                let f_r = rec.material.as_ref().unwrap().brdf(ray, &r_out, rec);
-                let color_from_scatter =
-                    attenuation * f_r * self.trace_ray(&r_out, num_bounces - 1, rec) / pdf;
+        // // The material could use `unwrap` instead of `map_or` because it will not be `None` if
+        // // scene.intersect is true.
+        // match rec.material.as_ref().unwrap().scatter(ray, rec) {
+        //     Some((attenuation, mut r_out)) => {
+        //         let light = &self.scene.lights[0];
+        //         r_out = Ray::new(rec.p, light.shape.random(rec.p), ray.t);
+        //         let pdf = light.shape.pdf(&r_out);
+        //         let f_r = rec.material.as_ref().unwrap().brdf(ray, &r_out, rec);
+        //         let color_from_scatter =
+        //             attenuation * f_r * self.trace_ray(&r_out, num_bounces - 1, rec) / pdf;
 
-                color_from_emission + color_from_scatter
-            }
-            None => color_from_emission,
-        }
+        //         color_from_emission + color_from_scatter
+        //     }
+        //     None => color_from_emission,
+        // }
+
+        // Sample two kinds of light: directive light, indirective light
+        let color_from_lights = self.sample_lights(rec.material(), rec.p, ray.t);
+        todo!()
     }
 
-    // /// Sample the ray towards lights and return the scattered ray and pdf.
-    // fn sample_lights(&self, rec: &HitRecord, shutter_time: f32) -> (Ray, Color) {
-    //     for light in &self.scene.lights {
-    //         let r_out = light.shape.random(rec);
-    //         let pdf = light.shape.pdf(&Ray::new(rec.p, r_out, shutter_time));
-    //     }
-    //     todo!()
-    // }
+    /// Sample the ray towards lights and return the color.
+    fn sample_lights(&self, material: &Material, pos: Vec3, shutter_time: f32) -> Color {
+        let mut color_from_lights = Color::ZERO;
+        for light in &self.scene.lights {
+            match light {
+                Light::Ambient(ambient_color) => {
+                    color_from_lights += ambient_color * material.color;
+                }
+                _ => {
+                    let (light_color, ray_light, t) = light.illuminate(pos);
+                    let mut rec = HitRecord::default();
+                    if !self.intersect(
+                        &Ray::new(pos, ray_light, shutter_time),
+                        Interval::new(1e-3, f32::INFINITY),
+                        &mut rec,
+                    ) {
+                        // The light can't reach the `pos` position.
+                        if rec.t > t {
+                            continue;
+                        }
+                        color_from_lights += light_color * material.color;
+                    }
+                }
+            }
+        }
+        color_from_lights
+    }
 
     /// Get the pixel color of a specified location in film plane.
     pub fn get_color(&self, col: u32, row: u32, iterations: u32) -> Color {
