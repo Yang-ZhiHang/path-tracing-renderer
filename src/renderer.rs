@@ -99,7 +99,7 @@ impl Renderer {
                 // 1. directive light. The light only bounces one time.
                 color +=
                     self.sample_lights(rec.material(), rec.p, ray.t, rec.normal, -ray.dir, rng);
-                // 2. indirective light including self-luminescence and bounced light.
+                // 2. indirective light which means bounced light.
                 if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, -ray.dir) {
                     let f = rec.material().bsdf(l, -ray.dir, rec.normal);
                     let scatter = Ray::new(rec.p, l, ray.t);
@@ -134,12 +134,12 @@ impl Renderer {
                     let close_hit = self
                         .intersect(
                             &Ray::new(pos, ray_light, shutter_time),
-                            Interval::new(1e-3, f32::INFINITY),
+                            Interval::new(1e-3, t_micro - 1e-3),
                         )
                         .map(|rec| rec.t);
 
                     // The light can reach the world position `pos`.
-                    if close_hit.is_none() || close_hit.unwrap() > t_micro {
+                    if close_hit.is_none() {
                         let f = material.bsdf(ray_light, ray_view, n);
                         // The integrand of monte carlo integral.
                         // intensity equals to (attenuation * pdf)
@@ -162,7 +162,8 @@ impl Renderer {
                 let t =
                     (row as f32 + (y as f32 + random()) / iter_sqrt as f32) / self.height as f32;
                 let r = self.cam.get_ray(s, t);
-                pixel_color += self.trace_ray(&r, self.max_bounces, rng);
+                let sample_color = self.trace_ray(&r, self.max_bounces, rng);
+                pixel_color += sample_color.clamp(Vec3::ZERO, Vec3::splat(10.0));
             }
         }
         pixel_color / iterations as f32

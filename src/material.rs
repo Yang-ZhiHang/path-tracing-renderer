@@ -6,7 +6,8 @@ use rand_distr::{Distribution, UnitCircle};
 
 use crate::{
     color::{self, Color},
-    math::{Vec3, vec3::random_cosine_weight_on_hemisphere}, onb::ONB,
+    math::{Vec3, vec3::random_cosine_weight_on_hemisphere},
+    onb::ONB,
 };
 
 pub struct Material {
@@ -44,12 +45,12 @@ impl Material {
     }
 
     /// Transparent glass material with specified roughness and index of refraction.
-    pub fn clear(roughness: f32, eta: f32) -> Self {
+    pub fn clear(roughness: f32, index_of_refraction: f32) -> Self {
         Self {
             color: color::WHITE,
             roughness,
             metallic: 0.0,
-            index_of_refraction: eta,
+            index_of_refraction,
             emittance: 0.0,
             transparent: true,
         }
@@ -95,32 +96,35 @@ impl Material {
         let v_outside = n_dot_v.is_sign_positive();
         let h = (l + v).normalize();
         let n_dot_h = n.dot(h);
-        let v_dot_h = v.dot(h);
+        let h_dot_v = v.dot(h);
         let nh2 = n_dot_h.powi(2);
 
-        // d: microfacet distribution function
-        // D = exp(((n • h)^2 - 1) / (m^2 (n • h)^2)) / (π m^2 (n • h)^4)
-        // TODO: try different formula: https://zhuanlan.zhihu.com/p/152226698
-        let m2 = self.roughness * self.roughness;
-        let d = ((nh2 - 1.0) / (m2 * nh2)).exp() / (f32::consts::PI * m2 * nh2 * nh2);
-
-        // f: fresnel, schlick's approximation
-        // F = F0 + (1 - F0)(1 - v • h)^5
-        let f = if !v_outside && (1.0 - n_dot_v * n_dot_v).sqrt() * self.index_of_refraction > 1.0 {
-            Vec3::splat(1.0)
-        } else {
-            let f0 = ((self.index_of_refraction - 1.0) / (self.index_of_refraction + 1.0)).powi(2);
-            let f0 = Vec3::splat(f0).lerp(self.color, self.metallic);
-            (1.0 - f0).mul_add(Vec3::splat((1.0 - n_dot_v).powi(5)), f0)
-        };
-
-        // g: geometry function, microfacet shadowing
-        // G = min(1, 2(n • h)(n • v)/(v • h), 2(n • h)(n • l)/(v • h))
-        let g = (n_dot_h * n_dot_v).min(n_dot_v * n_dot_h);
-        let g = 2.0 * g / v_dot_h;
-        let g = g.min(1.0);
-
         if l_outside == v_outside {
+            // d: microfacet distribution function
+            // D = exp(((n • h)^2 - 1) / (m^2 (n • h)^2)) / (π m^2 (n • h)^4)
+            // TODO: try different formula: https://zhuanlan.zhihu.com/p/152226698
+            let m2 = (self.roughness * self.roughness).max(1e-4);
+            let d = ((nh2 - 1.0) / (m2 * nh2)).exp() / (f32::consts::PI * m2 * nh2 * nh2);
+
+            // f: fresnel, schlick's approximation
+            // F = F0 + (1 - F0)(1 - v • h)^5
+            let f = if !l_outside
+                && (1.0 - n_dot_v * n_dot_v).sqrt() * self.index_of_refraction > 1.0
+            {
+                Vec3::splat(1.0)
+            } else {
+                let f0 =
+                    ((self.index_of_refraction - 1.0) / (self.index_of_refraction + 1.0)).powi(2);
+                let f0 = Vec3::splat(f0).lerp(self.color, self.metallic);
+                (1.0 - f0).mul_add(Vec3::splat((1.0 - h_dot_v).powi(5)), f0)
+            };
+
+            // g: geometry function, microfacet shadowing
+            // G = min(1, 2(n • h)(n • v)/(v • h), 2(n • h)(n • l)/(v • h))
+            let g = (n_dot_h * n_dot_v).min(n_dot_h * n_dot_l);
+            let g = 2.0 * g / h_dot_v;
+            let g = g.min(1.0);
+
             // BRDF
             // Cook-Torrance = DFG / (4(n • l)(n • v))
             // Lambert = (1 - F) * c / π
@@ -128,7 +132,7 @@ impl Material {
             if self.transparent {
                 specular
             } else {
-                let diffuse = (1.0 - f) * self.color / f32::consts::PI;
+                let diffuse = (1.0 - f) * self.color * f32::consts::FRAC_1_PI;
                 specular + diffuse
             }
         } else {
@@ -138,23 +142,46 @@ impl Material {
             } else {
                 1.0 / self.index_of_refraction
             };
-            let l_dot_h = l.dot(h);
+            let h_dot_l = l.dot(h);
+
+            // d: microfacet distribution function
+            // D = exp(((n • h)^2 - 1) / (m^2 (n • h)^2)) / (π m^2 (n • h)^4)
+            // TODO: try different formula: https://zhuanlan.zhihu.com/p/152226698
+            let m2 = (self.roughness * self.roughness).max(1e-4);
+            let d = ((nh2 - 1.0) / (m2 * nh2)).exp() / (f32::consts::PI * m2 * nh2 * nh2);
+
+            // f: fresnel, schlick's approximation
+            // F = F0 + (1 - F0)(1 - v • h)^5
+            let f0 = ((self.index_of_refraction - 1.0) / (self.index_of_refraction + 1.0)).powi(2);
+            let f0 = Vec3::splat(f0).lerp(self.color, self.metallic);
+            let f = (1.0 - f0).mul_add(Vec3::splat((1.0 - h_dot_v.abs()).powi(5)), f0);
+
+            // g: geometry function, microfacet shadowing
+            // G = min(1, 2(n • h)(n • v)/(v • h), 2(n • h)(n • l)/(v • h))
+            let g = (n_dot_h * n_dot_v).min(n_dot_h * n_dot_l);
+            let g = 2.0 * g / h_dot_v.abs();
+            let g = g.min(1.0);
 
             // BTDF
             // Cook-Torrance = |l • h|/|n • l| * |v • h|/|n • v| * (1 - F)DG / (η_i / η_o * (h • l) + (h • v))^2
-            let btdf = (l_dot_h * v_dot_h / (n_dot_l * n_dot_v)).abs()
-                * ((1.0 - f) * d * g / (eta_t * l_dot_h + v_dot_h).powi(2));
+            let btdf = (h_dot_l * h_dot_v / (n_dot_l * n_dot_v)).abs()
+                * ((1.0 - f) * d * g / (eta_t * h_dot_l + h_dot_v).powi(2));
             btdf * self.color
         }
     }
 
     /// Get the incident ray and the PDF according to the given normal vector and light towards view.
-    /// 
-    /// Useful references: 
+    ///
+    /// Useful references:
     /// https://agraphicsguynotes.com/posts/sample_microfacet_brdf/
     pub fn scatter(&self, rng: &mut StdRng, n: Vec3, v: Vec3) -> Option<(Vec3, f32)> {
         let m2 = (self.roughness * self.roughness).max(1e-4);
         let world_onb = ONB::new(n);
+        let eta_t = if v.dot(n) > 0.0 {
+            self.index_of_refraction
+        } else {
+            1.0 / self.index_of_refraction
+        };
 
         // Estimate specular contribution using Fresnel.
         let f0 = ((self.index_of_refraction - 1.0) / (self.index_of_refraction + 1.0)).powi(2);
@@ -173,63 +200,54 @@ impl Material {
         };
 
         let beckmann_pdf = |h: Vec3| {
-            // p = 2 sinθ / (m^2 cos^3 θ) * e^(-tan^2(θ) / m^2)
-            let cos_t = n.dot(h);
-            let sin_t = (1.0-cos_t.powi(2)).sqrt();
-            2.0 *sin_t / (m2*cos_t.powi(3)) * (-(sin_t/cos_t).powi(2)/m2).exp()
+            // p = 1 / (π m^2 cos^3 θ) * e^(-tan^2(θ) / m^2)
+            let cos_t = n.dot(h).abs();
+            let sin_t = (1.0 - cos_t.powi(2)).sqrt();
+            (f32::consts::PI * m2 * cos_t.powi(3)).recip() * (-(sin_t / cos_t).powi(2) / m2).exp()
         };
 
-        let l = 
-        // specular
-        if rng.random_bool(f as f64) {
+        let l = if rng.random_bool(f as f64) {
+            // specular
             let h = beckmann(rng);
             -v.reflect(h)
-        } 
-        // diffuse
-        else if !self.transparent {
+        } else if !self.transparent {
+            // diffuse
             let dir = random_cosine_weight_on_hemisphere(rng);
             world_onb.transform(dir)
-        }
-        // transmit
-        else {
+        } else {
+            // transmit
             let h = beckmann(rng);
             let cos_v = h.dot(v);
             let v_perp = v - h * cos_v;
-            let l_perp = -v_perp / self.index_of_refraction;
+            let l_perp = -v_perp / eta_t;
             let sin2_l = l_perp.length_squared();
             if sin2_l > 1.0 {
                 return None;
             }
-            let cos_l = (1.0-sin2_l).sqrt();
-            - cos_v.signum() * h * cos_l + l_perp
+            let cos_l = (1.0 - sin2_l).sqrt();
+            -cos_v.signum() * h * cos_l + l_perp
         };
 
         // Multiple Importance Sampling
         let mut pdf = 0.0;
         pdf += {
-            let h = (l+v).normalize();
+            let h = (l + v).normalize();
             let p_h = beckmann_pdf(h);
             // TODO: why abs?
             f * p_h / (4.0 * h.dot(v).abs())
         };
-        pdf += 
-        // diffuse component
-        if !self.transparent {
-            (1.0 - f) * n.dot(l) * f32::consts::FRAC_1_PI
-        } 
-        // transmit component
-        else if n.dot(v).is_sign_positive() != n.dot(l).is_sign_positive() {
-            let eta_t = if v.dot(n) > 0.0 {
-                self.index_of_refraction
-            } else {
-                1.0 / self.index_of_refraction
-            };
-            let h = (l*eta_t+v).normalize();
+        pdf += if !self.transparent {
+            // diffuse component
+            (1.0 - f) * n.dot(l).abs() * f32::consts::FRAC_1_PI
+        } else if n.dot(v).is_sign_positive() != n.dot(l).is_sign_positive() {
+            // transmit component
+            let h = (l * eta_t + v).normalize();
             let h_dot_v = h.dot(v);
             let h_dot_l = h.dot(l);
             let jacobian = h_dot_v.abs() / (eta_t * h_dot_l + h_dot_v).powi(2);
+            // let jacobian = eta_t.powi(2) * h_dot_l.abs() / (eta_t * h_dot_l + h_dot_v).powi(2);
             let p_h = beckmann_pdf(h);
-            (1.0 - f)*p_h*jacobian
+            (1.0 - f) * p_h * jacobian
         } else {
             0.0
         };
