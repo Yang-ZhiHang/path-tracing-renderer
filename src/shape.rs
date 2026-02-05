@@ -1,6 +1,7 @@
 use std::{f32, sync::Arc};
 
 use glam::{Mat3A, Mat4, Vec4, Vec4Swizzles};
+use rand::rngs::StdRng;
 
 use crate::{
     aabb::Aabb,
@@ -26,6 +27,12 @@ pub trait Hittable: Send + Sync {
     /// Return a random ray from given point to the hittable shape.
     fn random(&self, _origin: Vec3) -> Vec3 {
         Vec3::new(1.0, 0.0, 0.0)
+    }
+
+    /// Return a random point, normal and the pdf.
+    /// The function is a combination of `pdf` and `random` in Ray Tracing Series 3.
+    fn sample(&self, _target: Point3, _rng: &mut StdRng) -> (Point3, Vec3, f32) {
+        (Point3::splat(1.0), Vec3::splat(1.0), 1.0 / (2.0 * f32::consts::PI))
     }
 }
 

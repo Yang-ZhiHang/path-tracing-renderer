@@ -1,10 +1,17 @@
+use std::f32;
 use std::f32::consts::PI;
+
+use rand::rngs::StdRng;
+use rand_distr::Distribution;
+use rand_distr::UnitDisc;
 
 use crate::aabb::Aabb;
 use crate::interval::Interval;
 use crate::math::Point3;
 use crate::math::Ray;
 use crate::math::Vec3;
+use crate::math::vec3::random_cosine_weight_on_hemisphere;
+use crate::onb::ONB;
 use crate::shape::Hittable;
 use crate::shape::{Bounded, HitRecord};
 
@@ -88,6 +95,15 @@ impl Hittable for Sphere {
         (rec.u, rec.v) = Self::get_sphere_uv(normal);
 
         true
+    }
+
+    /// Get a random point from the sphere and also return the vector from the random point to `target` and pdf.
+    fn sample(&self, target: Point3, _rng: &mut StdRng) -> (Point3, Vec3, f32) {
+        let p = random_cosine_weight_on_hemisphere();
+        let n = (target - self.center.ori).normalize();
+        let world_onb = ONB::new(n);
+        let p = world_onb.transform(p);
+        (p, n, p.z * f32::consts::FRAC_1_PI) // p.z = cosθ
     }
 }
 

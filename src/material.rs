@@ -1,8 +1,12 @@
 use std::f32;
 
+use glam::FloatExt;
+use rand::{Rng, rngs::StdRng};
+use rand_distr::{Distribution, UnitCircle};
+
 use crate::{
     color::{self, Color},
-    math::Vec3,
+    math::{Vec3, vec3::random_cosine_weight_on_hemisphere}, onb::ONB,
 };
 
 pub struct Material {
@@ -144,8 +148,93 @@ impl Material {
         }
     }
 
-    pub fn scatter(&self) -> Option<(Vec3, f32)> {
-        todo!()
+    /// Get the incident ray and the PDF according to the given normal vector and light towards view.
+    /// 
+    /// Useful references: 
+    /// https://agraphicsguynotes.com/posts/sample_microfacet_brdf/
+    pub fn scatter(&self, rng: &mut StdRng, n: Vec3, v: Vec3) -> Option<(Vec3, f32)> {
+        let m2 = self.roughness * self.roughness;
+        let world_onb = ONB::new(n);
+
+        // Estimate specular contribution using Fresnel.
+        let f0 = ((self.index_of_refraction - 1.0) / (self.index_of_refraction + 1.0)).powi(2);
+        let f = f0.lerp(self.color.element_sum() / 3.0, self.metallic);
+        // Raise the specular probability to at least 0.2.
+        let f = 0.2.lerp(1.0, f);
+
+        // Probability Integral Transform
+        let beckmann = |rng: &mut StdRng| {
+            // θ = arctan √(-m^2 ln U)
+            let theta = (-m2 * rng.random::<f32>().ln()).sqrt().atan();
+            let (sin_t, cos_t) = theta.sin_cos();
+            let [x, y]: [f32; 2] = UnitCircle.sample(rng);
+            let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
+            world_onb.transform(h)
+        };
+
+        let beckmann_pdf = |h: Vec3| {
+            // p = 2 sinθ / (m^2 cos^3 θ) * e^(-tan^2(θ) / m^2)
+            let cos_t = n.dot(h);
+            let sin_t = (1.0-cos_t.powi(2)).sqrt();
+            2.0 *sin_t / (m2*cos_t.powi(3)) * (-(sin_t/cos_t).powi(2)/m2).exp()
+        };
+
+        let l = 
+        // specular
+        if rng.random_bool(f as f64) {
+            let h = beckmann(rng);
+            -v.reflect(h)
+        } 
+        // diffuse
+        else if !self.transparent {
+            let dir = random_cosine_weight_on_hemisphere();
+            world_onb.transform(dir)
+        }
+        // transmit
+        else {
+            let h = beckmann(rng);
+            let cos_v = h.dot(v);
+            let v_perp = v - h * cos_v;
+            let l_perp = -v_perp / self.index_of_refraction;
+            let sin2_l = l_perp.length_squared();
+            if sin2_l > 1.0 {
+                return None;
+            }
+            let cos_l = (1.0-sin2_l).sqrt();
+            - cos_v.signum() * h * cos_l + l_perp
+        };
+
+        // Multiple Importance Sampling
+        let mut pdf = 0.0;
+        pdf += {
+            let h = (l+v).normalize();
+            let p_h = beckmann_pdf(h);
+            // TODO: why abs?
+            f * p_h / (4.0 * h.dot(v).abs())
+        };
+        pdf += 
+        // diffuse component
+        if !self.transparent {
+            (1.0 - f) * n.dot(l) * f32::consts::FRAC_1_PI
+        } 
+        // transmit component
+        else if n.dot(v).is_sign_positive() != n.dot(l).is_sign_positive() {
+            let eta_t = if v.dot(n) > 0.0 {
+                self.index_of_refraction
+            } else {
+                1.0 / self.index_of_refraction
+            };
+            let h = (l*eta_t+v).normalize();
+            let h_dot_v = h.dot(v);
+            let h_dot_l = h.dot(l);
+            let jacobian = h_dot_v.abs() / (eta_t * h_dot_l + h_dot_v).powi(2);
+            let p_h = beckmann_pdf(h);
+            (1.0 - f)*p_h*jacobian
+        } else {
+            0.0
+        };
+
+        Some((l, pdf))
     }
 }
 

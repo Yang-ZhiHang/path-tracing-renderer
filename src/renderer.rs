@@ -2,6 +2,8 @@ use std::f32;
 
 use image::RgbImage;
 use indicatif::ProgressBar;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use rayon::prelude::*;
 
 use crate::buffer::Buffer;
@@ -83,7 +85,13 @@ impl Renderer {
     }
 
     /// Trace the ray and return the color.
-    pub fn trace_ray(&self, ray: &Ray, num_bounces: u32, rec: &mut HitRecord) -> Color {
+    pub fn trace_ray(
+        &self,
+        ray: &Ray,
+        num_bounces: u32,
+        rec: &mut HitRecord,
+        rng: &mut StdRng,
+    ) -> Color {
         if num_bounces == 0 {
             return color::BLACK;
         }
@@ -114,11 +122,13 @@ impl Renderer {
         let mut color = rec.material().emittance * rec.material().color;
         // Sample two kinds of light: directive light, indirective light.
         // 1. directive light. The light only bounces one time.
-        color += self.sample_lights(rec.material(), rec.p, ray.t, rec.normal, -ray.dir);
-        // 2. indirective light including self-luminescence and ambient light.
-        if let Some((l, pdf)) = rec.material().scatter() {
+        color += self.sample_lights(rec.material(), rec.p, ray.t, rec.normal, -ray.dir, rng);
+        // 2. indirective light including self-luminescence and bounced light.
+        if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, -ray.dir) {
             let f = rec.material().bsdf(l, -ray.dir, rec.normal);
-            color += f * self.trace_ray(ray, num_bounces - 1, rec) * rec.normal.dot(l) / pdf;
+            let scatter = Ray::new(rec.p, l, ray.t);
+            color +=
+                f * self.trace_ray(&scatter, num_bounces - 1, rec, rng) * rec.normal.dot(l) / pdf;
         }
         color
     }
@@ -131,6 +141,7 @@ impl Renderer {
         shutter_time: f32,
         n: Vec3,
         ray_view: Vec3,
+        rng: &mut StdRng,
     ) -> Color {
         let mut color_from_lights = Color::ZERO;
         for light in &self.scene.lights {
@@ -139,7 +150,7 @@ impl Renderer {
                     color_from_lights += color_ambient * material.color;
                 }
                 _ => {
-                    let (intensity, ray_light, t_micro) = light.illuminate(pos);
+                    let (intensity, ray_light, t_micro) = light.illuminate(pos, rng);
                     let mut rec = HitRecord::default();
                     if !self.intersect(
                         &Ray::new(pos, ray_light, shutter_time),
@@ -163,7 +174,7 @@ impl Renderer {
     }
 
     /// Get the pixel color of a specified location in film plane.
-    pub fn get_color(&self, col: u32, row: u32, iterations: u32) -> Color {
+    pub fn get_color(&self, col: u32, row: u32, iterations: u32, rng: &mut StdRng) -> Color {
         let mut pixel_color = Color::default();
         let mut rec = HitRecord::default();
         // Sampling stratifications + Mento Carlo approximatiom.
@@ -174,7 +185,7 @@ impl Renderer {
                 let t =
                     (row as f32 + (y as f32 + random()) / iter_sqrt as f32) / self.height as f32;
                 let r = self.cam.get_ray(s, t);
-                pixel_color += self.trace_ray(&r, self.max_bounces, &mut rec);
+                pixel_color += self.trace_ray(&r, self.max_bounces, &mut rec, rng);
             }
         }
         pixel_color / iterations as f32
@@ -185,8 +196,9 @@ impl Renderer {
         let colors: Vec<_> = (0..self.height)
             .into_par_iter()
             .map(|row| {
+                let mut rng = StdRng::from_os_rng();
                 let row_pixels: Vec<Color> = (0..self.width)
-                    .map(|col| self.get_color(col, row, iterations))
+                    .map(|col| self.get_color(col, row, iterations, &mut rng))
                     .collect();
 
                 // Update progress bar after finish each row
