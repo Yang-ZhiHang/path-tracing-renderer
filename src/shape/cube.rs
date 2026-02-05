@@ -29,7 +29,7 @@ impl Cube {
 }
 
 impl Hittable for Cube {
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
         let mut t_min = ray_t.min;
         let mut t_max = ray_t.max;
 
@@ -45,18 +45,21 @@ impl Hittable for Cube {
             t_max = t_max.min(t1);
 
             if t_max < t_min {
-                return false;
+                return None;
             }
         }
 
         // Find the hit point
         let t = if t_min >= ray_t.min { t_min } else { t_max };
         if t < ray_t.min || t > ray_t.max {
-            return false;
+            return None;
         }
 
-        rec.t = t;
-        rec.p = r.at(t);
+        let mut rec = HitRecord {
+            t,
+            p: r.at(t),
+            ..Default::default()
+        };
 
         // Calculate normal vector based on which face was hit
         let epsilon = 1e-4;
@@ -75,7 +78,7 @@ impl Hittable for Cube {
         };
 
         rec.set_face_normal(r, normal);
-        true
+        Some(rec)
     }
 }
 

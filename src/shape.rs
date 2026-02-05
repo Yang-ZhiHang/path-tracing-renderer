@@ -17,7 +17,7 @@ pub mod sphere;
 
 pub trait Hittable: Send + Sync {
     /// Used for `HitRecord` of incident ray.
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool;
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord>;
 
     /// Return the PDF of the hittable shape.
     fn pdf(&self, _r_out: &Ray) -> f32 {
@@ -32,7 +32,11 @@ pub trait Hittable: Send + Sync {
     /// Return a random point, normal and the pdf.
     /// The function is a combination of `pdf` and `random` in Ray Tracing Series 3.
     fn sample(&self, _target: Point3, _rng: &mut StdRng) -> (Point3, Vec3, f32) {
-        (Point3::splat(1.0), Vec3::splat(1.0), 1.0 / (2.0 * f32::consts::PI))
+        (
+            Point3::splat(1.0),
+            Vec3::splat(1.0),
+            1.0 / (2.0 * f32::consts::PI),
+        )
     }
 }
 
@@ -118,22 +122,23 @@ impl<T> Transformed<T> {
 }
 
 impl<T: Hittable> Hittable for Transformed<T> {
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
         let ray_trans = r.apply_transform(&self.inverse_transform);
-        if !self.shape.intersect(&ray_trans, ray_t, rec) {
-            return false;
+        match self.shape.intersect(&ray_trans, ray_t) {
+            None => None,
+            Some(mut rec) => {
+                // Transform intersection point back to world space
+                let p_world = self.transform * rec.p.extend(1.0);
+                rec.p = p_world.xyz().to_vec3a();
+
+                // Fix normal vector by multiplying by M^-T
+                rec.normal = self.normal_transform.mul_vec3a(rec.normal).normalize();
+
+                // Check face normal against the original ray (not transformed ray)
+                rec.set_face_normal(r, rec.normal);
+                Some(rec)
+            }
         }
-
-        // Transform intersection point back to world space
-        let p_world = self.transform * rec.p.extend(1.0);
-        rec.p = p_world.xyz().to_vec3a();
-
-        // Fix normal vector by multiplying by M^-T
-        rec.normal = self.normal_transform.mul_vec3a(rec.normal).normalize();
-
-        // Check face normal against the original ray (not transformed ray)
-        rec.set_face_normal(r, rec.normal);
-        true
     }
 }
 

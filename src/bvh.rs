@@ -105,32 +105,24 @@ impl BvhNode {
 }
 
 impl Hittable for BvhNode {
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
         match self {
             Self::Leaf { object, bbox } => {
-                if bbox.intersect(r, ray_t) && object.intersect(r, ray_t, rec) {
-                    return true;
+                if !bbox.intersect(r, ray_t) {
+                    return None;
                 }
-                false
+                object.intersect(r, ray_t)
             }
             Self::Node { left, right, bbox } => {
                 if !bbox.intersect(r, ray_t) {
-                    return false;
+                    return None;
                 }
-                let mut hit_any = false;
-                let mut temp_rec = HitRecord::default();
-                let mut search_interval = ray_t;
 
-                if left.intersect(r, search_interval, &mut temp_rec) {
-                    hit_any = true;
-                    *rec = temp_rec.clone();
-                    search_interval.max = temp_rec.t;
-                }
-                if right.intersect(r, search_interval, &mut temp_rec) {
-                    hit_any = true;
-                    *rec = temp_rec;
-                }
-                hit_any
+                let hit_left = left.intersect(r, ray_t);
+                let t_max = hit_left.as_ref().map_or(ray_t.max, |rec| rec.t);
+                let hit_right = right.intersect(r, Interval::new(ray_t.min, t_max));
+
+                hit_right.or(hit_left)
             }
         }
     }

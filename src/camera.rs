@@ -79,12 +79,9 @@ impl Camera {
     pub fn get_ray(&self, i: f32, j: f32) -> Ray {
         let mut lens_offset = self.lens_radius * random_in_unit_disk();
         lens_offset = self.c_x * lens_offset.x + self.c_y * lens_offset.y;
+        let dir = self.upper_left + i * self.u + j * self.v - self.origin - lens_offset;
         let shutter_time = random();
-        Ray::new(
-            self.origin + lens_offset,
-            self.upper_left + i * self.u + j * self.v - self.origin - lens_offset,
-            shutter_time,
-        )
+        Ray::new(self.origin + lens_offset, dir.normalize(), shutter_time)
     }
 
     /// Get how much width for one pixel.

@@ -39,9 +39,11 @@ impl Object {
 
 impl Hittable for Object {
     /// Set the material for `rec` and call `intersect` of the member `shape`.
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
-        rec.material = Some(self.material.clone());
-        self.shape.intersect(r, ray_t, rec)
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
+        self.shape.intersect(r, ray_t).map(|mut rec| {
+            rec.material = Some(self.material.clone());
+            rec
+        })
     }
 }
 

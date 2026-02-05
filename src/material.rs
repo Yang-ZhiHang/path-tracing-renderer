@@ -20,10 +20,10 @@ pub struct Material {
 
 impl Material {
     /// Specular reflection material with specified color.
-    pub fn specular(color: Color) -> Self {
+    pub fn specular(color: Color, roughness: f32) -> Self {
         Self {
             color,
-            roughness: 0.0,
+            roughness,
             metallic: 0.0,
             index_of_refraction: 1.0,
             emittance: 0.0,
@@ -71,7 +71,7 @@ impl Material {
     pub fn light(color: Color, emittance: f32) -> Self {
         Self {
             color,
-            roughness: 0.0,
+            roughness: 1.0,
             metallic: 0.0,
             index_of_refraction: 1.0,
             emittance,
@@ -101,7 +101,7 @@ impl Material {
         // d: microfacet distribution function
         // D = exp(((n • h)^2 - 1) / (m^2 (n • h)^2)) / (π m^2 (n • h)^4)
         // TODO: try different formula: https://zhuanlan.zhihu.com/p/152226698
-        let m2 = self.roughness * self.roughness;
+        let m2 = (self.roughness * self.roughness).max(1e-4);
         let d = ((nh2 - 1.0) / (m2 * nh2)).exp() / (f32::consts::PI * m2 * nh2 * nh2);
 
         // f: fresnel, schlick's approximation
@@ -153,7 +153,7 @@ impl Material {
     /// Useful references: 
     /// https://agraphicsguynotes.com/posts/sample_microfacet_brdf/
     pub fn scatter(&self, rng: &mut StdRng, n: Vec3, v: Vec3) -> Option<(Vec3, f32)> {
-        let m2 = self.roughness * self.roughness;
+        let m2 = (self.roughness * self.roughness).max(1e-4);
         let world_onb = ONB::new(n);
 
         // Estimate specular contribution using Fresnel.

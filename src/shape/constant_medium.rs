@@ -27,30 +27,24 @@ impl ConstantMedium {
 }
 
 impl Hittable for ConstantMedium {
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
         let mut rec1 = HitRecord::default();
         let mut rec2 = HitRecord::default();
 
-        if !self.boundary.intersect(r, Interval::universe(), &mut rec1) {
-            return false;
-        }
-
-        if !self.boundary.intersect(
+        self.boundary.intersect(r, Interval::universe())?;
+        self.boundary.intersect(
             r,
             Interval {
                 min: rec1.t + 0.0001,
                 max: f32::INFINITY,
             },
-            &mut rec2,
-        ) {
-            return false;
-        }
+        )?;
 
         rec1.t = rec1.t.max(ray_t.min);
         rec2.t = rec2.t.min(ray_t.max);
 
         if rec1.t >= rec2.t {
-            return false;
+            return None;
         }
 
         if rec1.t < 0.0 {
@@ -62,15 +56,15 @@ impl Hittable for ConstantMedium {
         let hit_distance = self.neg_inv_density * random().ln();
 
         if hit_distance > distance_inside_boundary {
-            return false;
+            return None;
         }
 
+        let mut rec = HitRecord::default();
         rec.t = rec1.t + hit_distance / ray_length;
         rec.p = r.at(rec.t);
         rec.normal = Vec3::new(1.0, 0.0, 0.0);
         rec.front_face = true;
-
-        true
+        Some(rec)
     }
 }
 

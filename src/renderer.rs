@@ -85,20 +85,31 @@ impl Renderer {
     }
 
     /// Trace the ray and return the color.
-    pub fn trace_ray(
-        &self,
-        ray: &Ray,
-        num_bounces: u32,
-        rec: &mut HitRecord,
-        rng: &mut StdRng,
-    ) -> Color {
+    pub fn trace_ray(&self, ray: &Ray, num_bounces: u32, rng: &mut StdRng) -> Color {
         if num_bounces == 0 {
             return color::BLACK;
         }
 
         // Start ray interval above zero (1e-3) to avoid shadow acne.
-        if !self.intersect(ray, Interval::new(1e-3, f32::INFINITY), rec) {
-            return self.scene.background;
+        match self.intersect(ray, Interval::new(1e-3, f32::INFINITY)) {
+            None => self.scene.background,
+            Some(rec) => {
+                let mut color = rec.material().emittance * rec.material().color;
+                // Sample two kinds of light: directive light, indirective light.
+                // 1. directive light. The light only bounces one time.
+                color +=
+                    self.sample_lights(rec.material(), rec.p, ray.t, rec.normal, -ray.dir, rng);
+                // 2. indirective light including self-luminescence and bounced light.
+                if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, -ray.dir) {
+                    let f = rec.material().bsdf(l, -ray.dir, rec.normal);
+                    let scatter = Ray::new(rec.p, l, ray.t);
+                    color += 1.0 / pdf
+                        * f
+                        * rec.normal.dot(l)
+                        * self.trace_ray(&scatter, num_bounces - 1, rng);
+                }
+                color
+            }
         }
 
         // let color_from_emission = rec.material.as_ref().unwrap().emit(rec.u, rec.v, rec.p);
@@ -118,19 +129,6 @@ impl Renderer {
         //     }
         //     None => color_from_emission,
         // }
-
-        let mut color = rec.material().emittance * rec.material().color;
-        // Sample two kinds of light: directive light, indirective light.
-        // 1. directive light. The light only bounces one time.
-        color += self.sample_lights(rec.material(), rec.p, ray.t, rec.normal, -ray.dir, rng);
-        // 2. indirective light including self-luminescence and bounced light.
-        if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, -ray.dir) {
-            let f = rec.material().bsdf(l, -ray.dir, rec.normal);
-            let scatter = Ray::new(rec.p, l, ray.t);
-            color +=
-                f * self.trace_ray(&scatter, num_bounces - 1, rec, rng) * rec.normal.dot(l) / pdf;
-        }
-        color
     }
 
     /// Sample the ray towards lights in the scene for the given `world_pos` and return the color.
@@ -151,18 +149,16 @@ impl Renderer {
                 }
                 _ => {
                     let (intensity, ray_light, t_micro) = light.illuminate(pos, rng);
-                    let mut rec = HitRecord::default();
-                    if !self.intersect(
-                        &Ray::new(pos, ray_light, shutter_time),
-                        Interval::new(1e-3, f32::INFINITY),
-                        &mut rec,
-                    ) {
-                        if rec.t > t_micro {
-                            // The light can't reach the world position `pos`.
-                            continue;
-                        }
-                        let f = material.bsdf(ray_light, -ray_view, n);
+                    let close_hit = self
+                        .intersect(
+                            &Ray::new(pos, ray_light, shutter_time),
+                            Interval::new(1e-3, f32::INFINITY),
+                        )
+                        .map(|rec| rec.t);
 
+                    // The light can reach the world position `pos`.
+                    if close_hit.is_none() || close_hit.unwrap() > t_micro {
+                        let f = material.bsdf(ray_light, -ray_view, n);
                         // The integrand of monte carlo integral.
                         // intensity equals to (attenuation * pdf)
                         color_from_lights += f * intensity * n.dot(ray_light);
@@ -176,7 +172,6 @@ impl Renderer {
     /// Get the pixel color of a specified location in film plane.
     pub fn get_color(&self, col: u32, row: u32, iterations: u32, rng: &mut StdRng) -> Color {
         let mut pixel_color = Color::default();
-        let mut rec = HitRecord::default();
         // Sampling stratifications + Mento Carlo approximatiom.
         let iter_sqrt = (iterations as f32).sqrt() as u32;
         for y in 0..iter_sqrt {
@@ -185,7 +180,7 @@ impl Renderer {
                 let t =
                     (row as f32 + (y as f32 + random()) / iter_sqrt as f32) / self.height as f32;
                 let r = self.cam.get_ray(s, t);
-                pixel_color += self.trace_ray(&r, self.max_bounces, &mut rec, rng);
+                pixel_color += self.trace_ray(&r, self.max_bounces, rng);
             }
         }
         pixel_color / iterations as f32
@@ -224,21 +219,19 @@ impl Renderer {
 
 impl Hittable for Renderer {
     /// Get closest intersection of ray with intersectable objects.
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
         if let Some(bvh) = &self.scene.bvh {
-            return bvh.intersect(r, ray_t, rec);
+            return bvh.intersect(r, ray_t);
         }
-        let mut obj_rec = HitRecord::default();
-        let mut hit_any = false;
+        let mut rec = None;
         let mut closest_so_far = ray_t.max;
         for obj in &self.scene.objects {
             let search_interval = Interval::new(ray_t.min, closest_so_far);
-            if obj.intersect(r, search_interval, &mut obj_rec) {
-                hit_any = true;
+            if let Some(obj_rec) = obj.intersect(r, search_interval) {
                 closest_so_far = obj_rec.t;
-                *rec = obj_rec.clone();
+                rec = Some(obj_rec);
             }
         }
-        hit_any
+        rec
     }
 }

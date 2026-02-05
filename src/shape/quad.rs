@@ -75,26 +75,27 @@ impl Quad {
 }
 
 impl Hittable for Quad {
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
         let denominator = self.normal.dot(r.dir);
 
         // Treat near-parallel rays as misses
         if denominator.abs() < f32::EPSILON {
-            return false;
+            return None;
         }
 
         // Solve for the intersection parameter t
         let root = (self.D - self.normal.dot(r.ori)) / denominator;
         if !ray_t.contains(root) {
-            return false;
+            return None;
         }
 
         // Determine whether this point in the area
         let p = r.at(root) - self.origin;
         let alpha = self.w.dot(p.cross(self.v));
         let beta = self.w.dot(self.u.cross(p));
-        if !Self::is_interior(alpha, beta, rec) {
-            return false;
+        let mut rec = HitRecord::default();
+        if !Self::is_interior(alpha, beta, &mut rec) {
+            return None;
         }
 
         // Set intersection record
@@ -102,24 +103,34 @@ impl Hittable for Quad {
         rec.p = r.at(root);
         rec.set_face_normal(r, self.normal);
 
-        true
+        Some(rec)
     }
 
     /// Return the PDF of the hittable shape.
     fn pdf(&self, r_out: &Ray) -> f32 {
-        let mut rec = HitRecord::default();
-        if !self.intersect(r_out, Interval::new(1e-3, f32::INFINITY), &mut rec) {
-            return 1.0 / (2.0 * f32::consts::PI);
+        if let Some(rec) = self.intersect(r_out, Interval::new(1e-3, f32::INFINITY)) {
+            let distance_squared = (rec.p - r_out.ori).length_squared();
+            let cos = r_out.dir.normalize().dot(self.normal).abs();
+            return distance_squared / (self.area * cos);
         }
-        let distance_squared = (rec.p - r_out.ori).length_squared();
-        let cos = r_out.dir.normalize().dot(self.normal).abs();
-        distance_squared / (self.area * cos)
+        1.0 / (2.0 * f32::consts::PI)
     }
 
     /// Return a random ray from given point to the hittable shape.
     fn random(&self, origin: Vec3) -> Vec3 {
         let p = self.origin + random() * self.u + random() * self.v;
         p - origin
+    }
+
+    fn sample(&self, target: Point3, _rng: &mut rand::prelude::StdRng) -> (Point3, Vec3, f32) {
+        let alpha = random();
+        let beta = random();
+        let p = self.origin + alpha * self.u + beta * self.v;
+        let normal = self.normal;
+        let cos_t = normal.dot(target - p).abs();
+        let surface_area = self.area * cos_t;
+        let pdf = 1.0 / surface_area;
+        (p, normal, pdf)
     }
 }
 

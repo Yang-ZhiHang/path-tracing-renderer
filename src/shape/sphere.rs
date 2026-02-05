@@ -2,8 +2,6 @@ use std::f32;
 use std::f32::consts::PI;
 
 use rand::rngs::StdRng;
-use rand_distr::Distribution;
-use rand_distr::UnitDisc;
 
 use crate::aabb::Aabb;
 use crate::interval::Interval;
@@ -67,7 +65,7 @@ impl Sphere {
 }
 
 impl Hittable for Sphere {
-    fn intersect(&self, r: &Ray, ray_t: Interval, rec: &mut HitRecord) -> bool {
+    fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord> {
         let current_center = self.center.at(r.t);
         let oc = r.ori - current_center;
         let a = r.dir.length_squared();
@@ -75,7 +73,7 @@ impl Hittable for Sphere {
         let c = self.radius.mul_add(-self.radius, oc.length_squared());
         let discriminant = frac_b_2.mul_add(frac_b_2, -a * c);
         if discriminant.is_sign_negative() {
-            return false;
+            return None;
         }
 
         let sqrt_d = discriminant.sqrt();
@@ -83,18 +81,21 @@ impl Hittable for Sphere {
         if !ray_t.contains(root) {
             root = (-frac_b_2 + sqrt_d) / a;
             if !ray_t.contains(root) {
-                return false;
+                return None;
             }
         }
 
-        rec.t = root;
-        rec.p = r.at(root);
+        let mut rec = HitRecord {
+            t: root,
+            p: r.at(root),
+            ..Default::default()
+        };
         // If radius is negative, the normal is inverted. Application: hollow glass sphere.
         let normal = (rec.p - current_center) / self.radius;
         rec.set_face_normal(r, normal);
         (rec.u, rec.v) = Self::get_sphere_uv(normal);
 
-        true
+        Some(rec)
     }
 
     /// Get a random point from the sphere and also return the vector from the random point to `target` and pdf.
