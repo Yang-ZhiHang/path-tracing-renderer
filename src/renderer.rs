@@ -111,24 +111,6 @@ impl Renderer {
                 color
             }
         }
-
-        // let color_from_emission = rec.material.as_ref().unwrap().emit(rec.u, rec.v, rec.p);
-
-        // // The material could use `unwrap` instead of `map_or` because it will not be `None` if
-        // // scene.intersect is true.
-        // match rec.material.as_ref().unwrap().scatter(ray, rec) {
-        //     Some((attenuation, mut r_out)) => {
-        //         let light = &self.scene.lights[0];
-        //         r_out = Ray::new(rec.p, light.shape.random(rec.p), ray.t);
-        //         let pdf = light.shape.pdf(&r_out);
-        //         let f_r = rec.material.as_ref().unwrap().brdf(ray, &r_out, rec);
-        //         let color_from_scatter =
-        //             attenuation * f_r * self.trace_ray(&r_out, num_bounces - 1, rec) / pdf;
-
-        //         color_from_emission + color_from_scatter
-        //     }
-        //     None => color_from_emission,
-        // }
     }
 
     /// Sample the ray towards lights in the scene for the given `world_pos` and return the color.
@@ -158,7 +140,7 @@ impl Renderer {
 
                     // The light can reach the world position `pos`.
                     if close_hit.is_none() || close_hit.unwrap() > t_micro {
-                        let f = material.bsdf(ray_light, -ray_view, n);
+                        let f = material.bsdf(ray_light, ray_view, n);
                         // The integrand of monte carlo integral.
                         // intensity equals to (attenuation * pdf)
                         color_from_lights += f * intensity * n.dot(ray_light);

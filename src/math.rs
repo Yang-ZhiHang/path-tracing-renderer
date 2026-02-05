@@ -16,7 +16,7 @@ pub type Point3 = Vec3A;
 /// Vector utilities module for Vec3 operations
 pub mod vec3 {
     use super::*;
-    use rand::random_range;
+    use rand::{random_range, rngs::StdRng};
     use rand_distr::{Distribution, UnitDisc, UnitSphere};
 
     /// Generate a random vector with each component in [0, 1)
@@ -68,9 +68,9 @@ pub mod vec3 {
     /// Randomly generate a vector on the surface of a unit hemisphere using cosine weight
     /// probability density sampling.
     #[inline]
-    pub fn random_cosine_weight_on_hemisphere() -> Vec3 {
-        let r1 = random();
-        let r2 = random();
+    pub fn random_cosine_weight_on_hemisphere(rng: &mut StdRng) -> Vec3 {
+        let r1 = rng.random::<f32>();
+        let r2 = rng.random::<f32>();
         let x = (2.0 * f32::consts::PI * r1).cos() * r2.sqrt();
         let y = (2.0 * f32::consts::PI * r1).sin() * r2.sqrt();
         let z = (1.0 - r2).sqrt();

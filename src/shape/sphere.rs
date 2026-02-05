@@ -98,13 +98,17 @@ impl Hittable for Sphere {
         Some(rec)
     }
 
-    /// Get a random point from the sphere and also return the vector from the random point to `target` and pdf.
-    fn sample(&self, target: Point3, _rng: &mut StdRng) -> (Point3, Vec3, f32) {
-        let p = random_cosine_weight_on_hemisphere();
+    /// Get a random point from the sphere and also return the vector from the random point to `target` and the PDF based on MIS.
+    fn sample(&self, target: Point3, rng: &mut StdRng) -> (Point3, Vec3, f32) {
+        let p = random_cosine_weight_on_hemisphere(rng);
         let n = (target - self.center.ori).normalize();
         let world_onb = ONB::new(n);
-        let p = world_onb.transform(p);
-        (p, n, p.z * f32::consts::FRAC_1_PI) // p.z = cosθ
+        let world_p = world_onb.transform(p) * self.radius + self.center.ori;
+        (
+            world_p,
+            n,
+            p.z * f32::consts::FRAC_1_PI / (self.radius * self.radius),
+        ) // p.z = cosθ
     }
 }
 

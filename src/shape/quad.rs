@@ -1,9 +1,11 @@
 use std::f32;
 
+use rand::rngs::StdRng;
+
 use crate::{
     aabb::Aabb,
     interval::Interval,
-    math::{Point3, Ray, Vec3, random},
+    math::{Point3, Ray, Vec3},
     shape::{Bounded, HitRecord, Hittable},
 };
 
@@ -106,30 +108,22 @@ impl Hittable for Quad {
         Some(rec)
     }
 
-    /// Return the PDF of the hittable shape.
-    fn pdf(&self, r_out: &Ray) -> f32 {
-        if let Some(rec) = self.intersect(r_out, Interval::new(1e-3, f32::INFINITY)) {
-            let distance_squared = (rec.p - r_out.ori).length_squared();
-            let cos = r_out.dir.normalize().dot(self.normal).abs();
-            return distance_squared / (self.area * cos);
-        }
-        1.0 / (2.0 * f32::consts::PI)
-    }
-
-    /// Return a random ray from given point to the hittable shape.
-    fn random(&self, origin: Vec3) -> Vec3 {
-        let p = self.origin + random() * self.u + random() * self.v;
-        p - origin
-    }
-
-    fn sample(&self, target: Point3, _rng: &mut rand::prelude::StdRng) -> (Point3, Vec3, f32) {
-        let alpha = random();
-        let beta = random();
+    /// Get a random point from the quadrangle and also return the vector from the random point to `target` and the constant PDF.
+    /// The constant PDF is not very accurate since it does not consider the solid angle factor.
+    /// But it is simple and efficient enough for most use cases.
+    fn sample(&self, target: Point3, rng: &mut StdRng) -> (Point3, Vec3, f32) {
+        use rand::Rng; // Ensure Rng trait is in scope for usage
+        let alpha = rng.random::<f32>();
+        let beta = rng.random::<f32>();
         let p = self.origin + alpha * self.u + beta * self.v;
-        let normal = self.normal;
-        let cos_t = normal.dot(target - p).abs();
-        let surface_area = self.area * cos_t;
-        let pdf = 1.0 / surface_area;
+        let disp = p - target;
+        let normal = if self.normal.dot(disp).is_sign_positive() {
+            -self.normal
+        } else {
+            self.normal
+        };
+        // constant PDF for simple uniform sampling
+        let pdf = 1.0 / (self.area);
         (p, normal, pdf)
     }
 }

@@ -19,16 +19,6 @@ pub trait Hittable: Send + Sync {
     /// Used for `HitRecord` of incident ray.
     fn intersect(&self, r: &Ray, ray_t: Interval) -> Option<HitRecord>;
 
-    /// Return the PDF of the hittable shape.
-    fn pdf(&self, _r_out: &Ray) -> f32 {
-        1.0 / (2.0 * f32::consts::PI)
-    }
-
-    /// Return a random ray from given point to the hittable shape.
-    fn random(&self, _origin: Vec3) -> Vec3 {
-        Vec3::new(1.0, 0.0, 0.0)
-    }
-
     /// Return a random point, normal and the pdf.
     /// The function is a combination of `pdf` and `random` in Ray Tracing Series 3.
     fn sample(&self, _target: Point3, _rng: &mut StdRng) -> (Point3, Vec3, f32) {
