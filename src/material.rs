@@ -11,24 +11,43 @@ use crate::{
 };
 
 pub struct Material {
+    /// The base color of the material. Values between (0,0,0) and (1,1,1).
     pub color: Color,
+
+    /// The roughness of the material. Values will be automatically clamped between 0.01 and 1.0.
     pub roughness: f32,
+
+    /// The metallic property of the material. Values between 0.0 and 1.0.
     pub metallic: f32,
-    pub index_of_refraction: f32,
+
+    /// The index of refraction of the material.
+    pub index: f32,
+
+    /// The emittance of the material. Used for light sources.
     pub emittance: f32,
+
+    /// Whether the material is transparent.
     pub transparent: bool,
 }
 
 impl Material {
+    /// Private base constructor with default values and sanitized roughness.
+    fn base(roughness: f32) -> Self {
+        Self {
+            color: color::WHITE,
+            roughness: roughness.clamp(1e-2, 1.0),
+            metallic: 0.0,
+            index: 1.0,
+            emittance: 0.0,
+            transparent: false,
+        }
+    }
+
     /// Specular reflection material with specified color.
     pub fn specular(color: Color, roughness: f32) -> Self {
         Self {
             color,
-            roughness: roughness.clamp(1e-2, 1.0),
-            metallic: 0.0,
-            index_of_refraction: 1.0,
-            emittance: 0.0,
-            transparent: false,
+            ..Self::base(roughness)
         }
     }
 
@@ -36,23 +55,16 @@ impl Material {
     pub fn diffuse(color: Color) -> Self {
         Self {
             color,
-            roughness: 1.0,
-            metallic: 0.0,
-            index_of_refraction: 1.0,
-            emittance: 0.0,
-            transparent: false,
+            ..Self::base(1.0)
         }
     }
 
     /// Transparent glass material with specified roughness and index of refraction.
-    pub fn clear(roughness: f32, index_of_refraction: f32) -> Self {
+    pub fn clear(roughness: f32, index: f32) -> Self {
         Self {
-            color: color::WHITE,
-            roughness: roughness.clamp(1e-2, 1.0),
-            metallic: 0.0,
-            index_of_refraction,
-            emittance: 0.0,
+            index,
             transparent: true,
+            ..Self::base(roughness)
         }
     }
 
@@ -60,11 +72,8 @@ impl Material {
     pub fn metallic(color: Color, roughness: f32) -> Self {
         Self {
             color,
-            roughness: roughness.clamp(1e-2, 1.0),
             metallic: 1.0,
-            index_of_refraction: 1.0,
-            emittance: 0.0,
-            transparent: false,
+            ..Self::base(roughness)
         }
     }
 
@@ -72,23 +81,18 @@ impl Material {
     pub fn light(color: Color, emittance: f32) -> Self {
         Self {
             color,
-            roughness: 1.0,
-            metallic: 0.0,
-            index_of_refraction: 1.0,
             emittance,
-            transparent: false,
+            ..Self::base(1.0)
         }
     }
 
     /// Colored transparent material
-    pub fn transparent(color: Color, index_of_refraction: f32, roughness: f32) -> Self {
+    pub fn transparent(color: Color, index: f32, roughness: f32) -> Self {
         Self {
             color,
-            index_of_refraction,
-            roughness: roughness.clamp(1e-2, 1.0),
-            metallic: 0.0,
-            emittance: 0.0,
+            index,
             transparent: true,
+            ..Self::base(roughness)
         }
     }
 }
@@ -109,8 +113,6 @@ impl Material {
 
     /// Normal Distribution Function.
     /// Here, we use GGX (Trowbridge-Reitz) distribution to model the microfacet distribution.
-    /// References:
-    /// https://zhuanlan.zhihu.com/p/611622351
     pub fn ggx(&self, nh: f32) -> f32 {
         let m2 = self.roughness * self.roughness;
         let nh2 = nh * nh;
@@ -122,7 +124,7 @@ impl Material {
     /// https://zhuanlan.zhihu.com/p/152226698
     pub fn fresnel_schlick(&self, h_dot_v: f32) -> Vec3 {
         // F = F0 + (1 - F0)(1 - v • h)^5
-        let f0 = ((self.index_of_refraction - 1.0) / (self.index_of_refraction + 1.0)).powi(2);
+        let f0 = ((self.index - 1.0) / (self.index + 1.0)).powi(2);
 
         let f0 = Vec3::splat(f0).lerp(self.color, self.metallic);
         (1.0 - f0).mul_add(Vec3::splat((1.0 - h_dot_v).powi(5)), f0)
@@ -131,8 +133,6 @@ impl Material {
     /// Geometry function.
     /// It seems that geometric functions need to be selected based on the normal distribution function.
     /// Here, we temporarily use Smith's method with Schlick-GGX approximation.
-    /// References:
-    /// https://zhuanlan.zhihu.com/p/152226698
     pub fn gf(&self, n: Vec3, l: Vec3, v: Vec3) -> f32 {
         let k = (self.roughness + 1.0).powi(2) / 8.0;
         let g = |v: Vec3| {
@@ -147,6 +147,7 @@ impl Material {
     /// - `l`: The direction from the intersection point towards light.
     /// - `v`: The direction from the intersection point towards view.
     /// - `n`: The normal vector of the surface of the intersection point.
+    /// - `front_face`: Whether the incident ray is outside the surface.
     ///
     /// Returning the function describes the distribution of scattering.
     pub fn bsdf(&self, l: Vec3, v: Vec3, n: Vec3, front_face: bool) -> Vec3 {
@@ -171,9 +172,7 @@ impl Material {
             let d = self.ggx(n_dot_h);
 
             // fresnel, schlick's approximation
-            let f = if !l_outside
-                && (1.0 - n_dot_v * n_dot_v).sqrt() * self.index_of_refraction > 1.0
-            {
+            let f = if !l_outside && (1.0 - n_dot_v * n_dot_v).sqrt() * self.index > 1.0 {
                 Vec3::splat(1.0)
             } else {
                 self.fresnel_schlick(h_dot_v)
@@ -194,9 +193,9 @@ impl Material {
 
             // Ratio of refractive indices, η_i / η_o
             let eta_t = if front_face {
-                self.index_of_refraction
+                self.index
             } else {
-                1.0 / self.index_of_refraction
+                1.0 / self.index
             };
 
             // For refraction, h is -(η_i * l + η_o * v).normalize()
@@ -233,13 +232,13 @@ impl Material {
         let m2 = self.roughness * self.roughness;
         let world_onb = ONB::new(n);
         let eta_t = if front_face {
-            self.index_of_refraction
+            self.index
         } else {
-            1.0 / self.index_of_refraction
+            1.0 / self.index
         };
 
         // Estimate specular contribution using Fresnel.
-        let f0 = ((self.index_of_refraction - 1.0) / (self.index_of_refraction + 1.0)).powi(2);
+        let f0 = ((self.index - 1.0) / (self.index + 1.0)).powi(2);
         let f = f0.lerp(self.color.element_sum() / 3.0, self.metallic);
 
         // Raise the specular probability to at least 0.2, but only if there is a specular component.
@@ -278,11 +277,18 @@ impl Material {
             let v_perp = v - h * cos_v;
             let l_perp = -v_perp / eta_t;
             let sin2_l = l_perp.length_squared();
+
             if sin2_l > 1.0 {
-                return None;
+                // We must solve the case when there is total internal reflection if we
+                // need hollow glass balls.
+                // The problem is very similar to the video:
+                // https://www.bilibili.com/video/BV1cyS3BdECH/?share_source=copy_web&vd_source=bd8d5cbca2fadfeef1f4999532da8d57
+                // If sin²θ_l > 1, We make it reflect instead.
+                -v.reflect(h)
+            } else {
+                let cos_l = (1.0 - sin2_l).sqrt();
+                -cos_v.signum() * h * cos_l + l_perp
             }
-            let cos_l = (1.0 - sin2_l).sqrt();
-            -cos_v.signum() * h * cos_l + l_perp
         };
 
         // Multiple Importance Sampling
@@ -298,7 +304,7 @@ impl Material {
             (1.0 - f) * n.dot(l).abs() * f32::consts::FRAC_1_PI
         } else if n.dot(v).is_sign_positive() != n.dot(l).is_sign_positive() {
             // transmit component
-            let h = (l * eta_t + v).normalize();
+            let h = -(l * eta_t + v).normalize();
             let h_dot_v = h.dot(v);
             let h_dot_l = h.dot(l);
             let jacobian = h_dot_v.abs() / (eta_t * h_dot_l + h_dot_v).powi(2);

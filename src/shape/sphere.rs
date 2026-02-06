@@ -104,7 +104,7 @@ impl Hittable for Sphere {
         let p = random_cosine_weight_on_hemisphere(rng);
         let n = (target - self.center.at(0.0)).normalize();
         let world_onb = ONB::new(n);
-        let world_p = world_onb.transform(p) * self.radius + self.center.at(0.0);
+        let world_p = world_onb.transform(p) * self.radius.abs() + self.center.at(0.0);
         (
             world_p,
             n,
