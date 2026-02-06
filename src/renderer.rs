@@ -11,7 +11,6 @@ use crate::camera::Camera;
 use crate::color::{self, Color};
 use crate::interval::Interval;
 use crate::light::Light;
-use crate::material::Material;
 use crate::math::random;
 use crate::math::{Ray, Vec3};
 use crate::scene::Scene;
@@ -95,17 +94,17 @@ impl Renderer {
             None => self.scene.background,
             Some(rec) => {
                 let mut color = rec.material().emittance * rec.material().color;
+                let v = -ray.dir;
                 // Sample two kinds of light: directive light, indirective light.
                 // 1. directive light. The light only bounces one time.
-                color +=
-                    self.sample_lights(rec.material(), rec.p, ray.t, rec.normal, -ray.dir, rng);
+                color += self.sample_lights(&rec, ray.t, v, rng);
                 // 2. indirective light which means bounced light.
-                if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, -ray.dir) {
-                    let f = rec.material().bsdf(l, -ray.dir, rec.normal);
+                if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, v, rec.front_face) {
+                    let f = rec.material().bsdf(l, v, rec.normal, rec.front_face);
                     let scatter = Ray::new(rec.p, l, ray.t);
                     color += 1.0 / pdf
                         * f
-                        * rec.normal.dot(l)
+                        * rec.normal.dot(l).abs()
                         * self.trace_ray(&scatter, num_bounces - 1, rng);
                 }
                 color
@@ -116,14 +115,17 @@ impl Renderer {
     /// Sample the ray towards lights in the scene for the given `world_pos` and return the color.
     fn sample_lights(
         &self,
-        material: &Material,
-        pos: Vec3,
+        rec: &HitRecord,
         shutter_time: f32,
-        n: Vec3,
         ray_view: Vec3,
         rng: &mut StdRng,
     ) -> Color {
         let mut color_from_lights = Color::ZERO;
+        let material = rec.material();
+        let pos = rec.p;
+        let n = rec.normal;
+        let front_face = rec.front_face;
+
         for light in &self.scene.lights {
             match light {
                 Light::Ambient(color_ambient) => {
@@ -140,10 +142,10 @@ impl Renderer {
 
                     // The light can reach the world position `pos`.
                     if close_hit.is_none() {
-                        let f = material.bsdf(ray_light, ray_view, n);
+                        let f = material.bsdf(ray_light, ray_view, n, front_face);
                         // The integrand of monte carlo integral.
                         // intensity equals to (attenuation * pdf)
-                        color_from_lights += f * intensity * n.dot(ray_light);
+                        color_from_lights += f * intensity * n.dot(ray_light).abs();
                     }
                 }
             }
@@ -154,7 +156,7 @@ impl Renderer {
     /// Get the pixel color of a specified location in film plane.
     pub fn get_color(&self, col: u32, row: u32, iterations: u32, rng: &mut StdRng) -> Color {
         let mut pixel_color = Color::default();
-        // Sampling stratifications + Mento Carlo approximatiom.
+        // Sampling stratifications + Monte Carlo approximation.
         let iter_sqrt = (iterations as f32).sqrt() as u32;
         for y in 0..iter_sqrt {
             for x in 0..iter_sqrt {
@@ -163,7 +165,10 @@ impl Renderer {
                     (row as f32 + (y as f32 + random()) / iter_sqrt as f32) / self.height as f32;
                 let r = self.cam.get_ray(s, t);
                 let sample_color = self.trace_ray(&r, self.max_bounces, rng);
-                pixel_color += sample_color.clamp(Vec3::ZERO, Vec3::splat(10.0));
+                // Avoid NaN and infinity in color which may cause pixel acne.
+                if sample_color.is_finite() {
+                    pixel_color += sample_color;
+                }
             }
         }
         pixel_color / iterations as f32

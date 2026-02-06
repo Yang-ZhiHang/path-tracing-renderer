@@ -124,8 +124,6 @@ impl<T: Hittable> Hittable for Transformed<T> {
                 // Fix normal vector by multiplying by M^-T
                 rec.normal = self.normal_transform.mul_vec3a(rec.normal).normalize();
 
-                // Check face normal against the original ray (not transformed ray)
-                rec.set_face_normal(r, rec.normal);
                 Some(rec)
             }
         }

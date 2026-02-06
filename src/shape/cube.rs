@@ -77,7 +77,7 @@ impl Hittable for Cube {
             Vec3::new(0.0, 0.0, 1.0)
         };
 
-        rec.set_face_normal(r, normal);
+        rec.normal = normal;
         Some(rec)
     }
 }
