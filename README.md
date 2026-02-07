@@ -7,14 +7,18 @@ The project is a simple path tracing renderer implemented in `Rust` language. It
 - [x] Implemented CPU multithreading using `rayon`.
 - [x] Supports directly rendering the images as `PNG` instead of `PPM` format.
 - [x] Denoising and more realistic pixel color through Monte Carlo integration and weighted PDF.
+- [x] A unified BSDF-based scattering model (Microfacet BRDF/BTDF) for all materials, replacing separate scatter implementations. Supports Roughness, Metallic, IOR, and Transparency.
 
 ## Future Work
 
-- [x] PDF with light source directivity
 - [ ] Add support for GPU acceleration using `wgpu`.
-    - [ ] POD structures for GPU data transfer.
-    - [ ] Shader implementation for path tracing on GPU.
+
+## Attention
+
+- In order to avoid numerical issues, the index of refraction and roughness values are clamped to safe ranges in `material.rs`.
+- If you wanna make a hollow glass sphere, it's better to set the index of refraction of the inner sphere to reciprocal value (e.g., 1.0 / 1.5) than setting the radius to negative value.
 
 ## References
 
 - [Ray Tracing in One Weekend - Book Series](https://raytracing.github.io/): A popular book that provides a comprehensive introduction to path tracing.
+- [Sample Microfacet BRDF](https://agraphicsguynotes.com/posts/sample_microfacet_brdf/): Reference for the implementation of the microfacet BRDF/BTDF sampling.
