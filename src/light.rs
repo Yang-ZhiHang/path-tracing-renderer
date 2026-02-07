@@ -24,12 +24,22 @@ impl Light {
     pub fn illuminate(&self, pos: Vec3, rng: &mut StdRng) -> (Vec3, Vec3, f32) {
         match self {
             Light::Ambient(color) => (*color, Vec3::ZERO, 0.0),
-            Light::Directional(color, dir) => (*color, *dir, f32::INFINITY),
+            Light::Directional(color, dir) => (
+                *color,
+                // The dir means the direction from the light to the point.
+                // So we need to negate it to get the direction from the point to the light.
+                -*dir,
+                f32::INFINITY,
+            ),
             Light::Point(color, loc) => {
                 let disp = loc - pos;
                 let len = disp.length();
-                // The point light source attenuates 1/r^2 for displacement r.
-                (*color / (len * len), disp / len, len)
+                (
+                    // The point light source attenuates 1/r^2 for displacement r.
+                    *color / (len * len),
+                    disp / len,
+                    len,
+                )
             }
             Light::Object(object) => {
                 let (p, n, pdf) = object.shape.sample(pos, rng);

@@ -31,13 +31,15 @@ pub struct Material {
 }
 
 impl Material {
-    /// Private base constructor with default values and sanitized roughness.
-    fn base(roughness: f32) -> Self {
+    /// Base constructor with default values, sanitized roughness and index of refraction.
+    pub fn base(roughness: f32, index: f32) -> Self {
         Self {
             color: color::WHITE,
-            roughness: roughness.clamp(1e-2, 1.0),
+            // Clamp roughness to avoid numerical issues in NDF.
+            roughness: roughness.clamp(1e-3, 1.0),
             metallic: 0.0,
-            index: 1.0,
+            // Avoid index of exactly 1.0 to prevent numerical issues in refraction calculations.
+            index: index + 1e-6,
             emittance: 0.0,
             transparent: false,
         }
@@ -47,7 +49,7 @@ impl Material {
     pub fn specular(color: Color, roughness: f32) -> Self {
         Self {
             color,
-            ..Self::base(roughness)
+            ..Self::base(roughness, 1.0)
         }
     }
 
@@ -55,16 +57,15 @@ impl Material {
     pub fn diffuse(color: Color) -> Self {
         Self {
             color,
-            ..Self::base(1.0)
+            ..Self::base(1.0, 1.0)
         }
     }
 
     /// Transparent glass material with specified roughness and index of refraction.
     pub fn clear(roughness: f32, index: f32) -> Self {
         Self {
-            index,
             transparent: true,
-            ..Self::base(roughness)
+            ..Self::base(roughness, index)
         }
     }
 
@@ -73,7 +74,7 @@ impl Material {
         Self {
             color,
             metallic: 1.0,
-            ..Self::base(roughness)
+            ..Self::base(roughness, 1.0)
         }
     }
 
@@ -82,7 +83,7 @@ impl Material {
         Self {
             color,
             emittance,
-            ..Self::base(1.0)
+            ..Self::base(1.0, 1.0)
         }
     }
 
@@ -90,9 +91,8 @@ impl Material {
     pub fn transparent(color: Color, index: f32, roughness: f32) -> Self {
         Self {
             color,
-            index,
             transparent: true,
-            ..Self::base(roughness)
+            ..Self::base(roughness, index)
         }
     }
 }
@@ -115,8 +115,19 @@ impl Material {
     /// Here, we use GGX (Trowbridge-Reitz) distribution to model the microfacet distribution.
     pub fn ggx(&self, nh: f32) -> f32 {
         let m2 = self.roughness * self.roughness;
+        let m4 = m2 * m2;
         let nh2 = nh * nh;
-        m2 * f32::consts::FRAC_1_PI / ((nh2 * (m2 - 1.0) + 1.0).powi(2))
+        m4 * f32::consts::FRAC_1_PI / ((nh2 * (m4 - 1.0) + 1.0).powi(2))
+    }
+
+    /// Normal Distribution Function.
+    /// Here, we use Blinn-Phong distribution which is also used in Unity and UE4
+    /// to model the microfacet distribution.
+    /// References:
+    /// https://zhuanlan.zhihu.com/p/564814632
+    pub fn blinn_phong(&self, nh: f32) -> f32 {
+        let alpha = 2.0 * self.roughness.powi(2).recip() - 2.0;
+        (alpha + 2.0) * f32::consts::FRAC_1_PI * nh.powf(alpha) / 2.0
     }
 
     /// Fresnel function using Schlick's approximation.
@@ -131,7 +142,7 @@ impl Material {
     }
 
     /// Geometry function.
-    /// It seems that geometric functions need to be selected based on the normal distribution function.
+    /// It seems that geometric functions need to be selected based on the NDF.
     /// Here, we temporarily use Smith's method with Schlick-GGX approximation.
     pub fn gf(&self, n: Vec3, l: Vec3, v: Vec3) -> f32 {
         let k = (self.roughness + 1.0).powi(2) / 8.0;
@@ -151,6 +162,9 @@ impl Material {
     ///
     /// Returning the function describes the distribution of scattering.
     pub fn bsdf(&self, l: Vec3, v: Vec3, n: Vec3, front_face: bool) -> Vec3 {
+        // normal distribution function
+        let ndf = |nh| self.beckmann(nh);
+
         let n_dot_l = n.dot(l);
         let n_dot_v = n.dot(v);
         let l_outside = n_dot_l.is_sign_positive();
@@ -168,9 +182,7 @@ impl Material {
             let n_dot_h = n.dot(h);
             let h_dot_v = v.dot(h);
 
-            // normal distribution function
-            let d = self.ggx(n_dot_h);
-
+            let d = ndf(n_dot_h);
             // fresnel, schlick's approximation
             let f = if !l_outside && (1.0 - n_dot_v * n_dot_v).sqrt() * self.index > 1.0 {
                 Vec3::splat(1.0)
@@ -205,9 +217,7 @@ impl Material {
             let h_dot_v = v.dot(h);
             let h_dot_l = l.dot(h);
 
-            // normal distribution function with the correct transmission h
-            let d = self.ggx(n_dot_h);
-
+            let d = ndf(n_dot_h);
             // fresnel, schlick's approximation
             let f = self.fresnel_schlick(h_dot_v.abs());
 
