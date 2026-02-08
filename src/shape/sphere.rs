@@ -99,12 +99,11 @@ impl Hittable for Sphere {
     }
 
     /// Get a random point from the sphere and also return the vector from the random point to `target` and the PDF based on MIS.
-    /// TODO: add shutter_time parameter for moving sphere.
-    fn sample(&self, target: Point3, rng: &mut StdRng) -> (Point3, Vec3, f32) {
+    fn sample(&self, target: Point3, rng: &mut StdRng, shutter_time: f32) -> (Point3, Vec3, f32) {
         let p = random_cosine_weight_on_hemisphere(rng);
-        let n = (target - self.center.at(0.0)).normalize();
+        let n = (target - self.center.at(shutter_time)).normalize();
         let world_onb = ONB::new(n);
-        let world_p = world_onb.transform(p) * self.radius.abs() + self.center.at(0.0);
+        let world_p = world_onb.transform(p) * self.radius.abs() + self.center.at(shutter_time);
         (
             world_p,
             n,

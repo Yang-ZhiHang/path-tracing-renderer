@@ -306,7 +306,6 @@ impl Material {
         pdf += {
             let h = (l + v).normalize();
             let p_h = beckmann_pdf(h);
-            // TODO: why abs?
             f * p_h / (4.0 * h.dot(v).abs())
         };
         pdf += if !self.transparent {

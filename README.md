@@ -6,8 +6,8 @@ The project is a simple path tracing renderer implemented in `Rust` language. It
 
 - [x] Implemented CPU multithreading using `rayon`.
 - [x] Supports directly rendering the images as `PNG` instead of `PPM` format.
-- [x] Denoising and more realistic pixel color through Monte Carlo integration and weighted PDF.
 - [x] A unified BSDF-based scattering model (Microfacet BRDF/BTDF) for all materials, replacing separate scatter implementations. Supports Roughness, Metallic, IOR, and Transparency.
+- [x] Able to set the shutting time for motion blur effects.
 
 ## Future Work
 
@@ -21,4 +21,3 @@ The project is a simple path tracing renderer implemented in `Rust` language. It
 ## References
 
 - [Ray Tracing in One Weekend - Book Series](https://raytracing.github.io/): A popular book that provides a comprehensive introduction to path tracing.
-- [Sample Microfacet BRDF](https://agraphicsguynotes.com/posts/sample_microfacet_brdf/): Reference for the implementation of the microfacet BRDF/BTDF sampling.

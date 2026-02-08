@@ -21,7 +21,7 @@ pub enum Light {
 impl Light {
     /// Illuminates a point.
     /// Returning the intensity, direction from `pos` to the light and distance from `pos` to the light in micro time.
-    pub fn illuminate(&self, pos: Vec3, rng: &mut StdRng) -> (Vec3, Vec3, f32) {
+    pub fn illuminate(&self, pos: Vec3, rng: &mut StdRng, shutter_time: f32) -> (Vec3, Vec3, f32) {
         match self {
             Light::Ambient(color) => (*color, Vec3::ZERO, 0.0),
             Light::Directional(color, dir) => (
@@ -42,7 +42,7 @@ impl Light {
                 )
             }
             Light::Object(object) => {
-                let (p, n, pdf) = object.shape.sample(pos, rng);
+                let (p, n, pdf) = object.shape.sample(pos, rng, shutter_time);
                 let disp = p - pos;
                 let len = disp.length();
                 let cosine = (-disp.dot(n)).max(0.0) / len;

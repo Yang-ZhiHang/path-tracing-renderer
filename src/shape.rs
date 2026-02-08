@@ -21,7 +21,7 @@ pub trait Hittable: Send + Sync {
 
     /// Return a random point, normal and the pdf.
     /// The function is a combination of `pdf` and `random` in Ray Tracing Series 3.
-    fn sample(&self, _target: Point3, _rng: &mut StdRng) -> (Point3, Vec3, f32) {
+    fn sample(&self, _target: Point3, _rng: &mut StdRng, _shutter_time: f32) -> (Point3, Vec3, f32) {
         (
             Point3::splat(1.0),
             Vec3::splat(1.0),

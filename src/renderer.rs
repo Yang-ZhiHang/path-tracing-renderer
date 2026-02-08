@@ -132,7 +132,7 @@ impl Renderer {
                     color_from_lights += color_ambient * material.color;
                 }
                 _ => {
-                    let (intensity, ray_light, t_micro) = light.illuminate(pos, rng);
+                    let (intensity, ray_light, t_micro) = light.illuminate(pos, rng, shutter_time);
                     let close_hit = self
                         .intersect(
                             &Ray::new(pos, ray_light, shutter_time),
