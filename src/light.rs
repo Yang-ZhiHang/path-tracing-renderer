@@ -46,7 +46,7 @@ impl Light {
                 let disp = p - pos;
                 let len = disp.length();
                 let cosine = (-disp.dot(n)).max(0.0) / len;
-                let surface_area = cosine.max(0.0) / (len * len);
+                let surface_area = cosine / (len * len);
                 (
                     object.material.emittance * object.material.color * surface_area / pdf,
                     disp / len,

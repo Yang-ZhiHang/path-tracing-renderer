@@ -102,10 +102,11 @@ impl Renderer {
                 if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, v, rec.front_face) {
                     let f = rec.material().bsdf(l, v, rec.normal, rec.front_face);
                     let scatter = Ray::new(rec.p, l, ray.t);
-                    color += 1.0 / pdf
+                    color += (1.0 / pdf
                         * f
                         * rec.normal.dot(l).abs()
-                        * self.trace_ray(&scatter, num_bounces - 1, rng);
+                        * self.trace_ray(&scatter, num_bounces - 1, rng))
+                    .min(Vec3::splat(100.0));
                 }
                 color
             }

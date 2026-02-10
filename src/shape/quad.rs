@@ -109,23 +109,13 @@ impl Hittable for Quad {
     }
 
     /// Get a random point from the quadrangle and also return the vector from the random point to `target` and the constant PDF.
-    /// The constant PDF is not very accurate since it does not consider the solid angle factor.
-    /// But it is simple and efficient enough for most use cases.
-    /// TODO: implement `shutter_time` for moving quad.
-    fn sample(&self, target: Point3, rng: &mut StdRng, _shutter_time: f32) -> (Point3, Vec3, f32) {
+    fn sample(&self, _target: Point3, rng: &mut StdRng, _shutter_time: f32) -> (Point3, Vec3, f32) {
         use rand::Rng; // Ensure Rng trait is in scope for usage
         let alpha = rng.random::<f32>();
         let beta = rng.random::<f32>();
         let p = self.origin + alpha * self.u + beta * self.v;
-        let disp = p - target;
-        let normal = if self.normal.dot(disp).is_sign_positive() {
-            -self.normal
-        } else {
-            self.normal
-        };
-        // constant PDF for simple uniform sampling
         let pdf = 1.0 / (self.area);
-        (p, normal, pdf)
+        (p, self.normal, pdf)
     }
 }
 
