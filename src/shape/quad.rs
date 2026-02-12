@@ -42,6 +42,9 @@ pub struct Quad {
 
 #[allow(non_snake_case)]
 impl Quad {
+    /// Create a quadrilateral defined by an origin point and two basis vectors.
+    /// The normal vector which is useful for object light is determined by the cross product
+    /// of the two basis vectors.
     pub fn new(origin: Point3, u: Vec3, v: Vec3) -> Self {
         let n = u.cross(v);
         let area = n.length();

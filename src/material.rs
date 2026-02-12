@@ -85,6 +85,7 @@ pub mod gf {
     }
 }
 
+#[derive(Clone)]
 pub struct Material {
     /// The base color of the material. Values between (0,0,0) and (1,1,1).
     pub color: Color,
@@ -188,7 +189,14 @@ impl Material {
     pub fn bsdf(&self, l: Vec3, v: Vec3, n: Vec3, front_face: bool) -> Vec3 {
         // normal distribution function
         let ndf = |nh| ndf::beckmann(self.roughness, nh);
-        let gf = |n, l, v| gf::smith_schlick_ggx(self.roughness, n, l, v);
+        let gf = |n, l, v, _h| gf::smith_schlick_ggx(self.roughness, n, l, v);
+        // let gf = |n: Vec3, l, v, h| {
+        //     let n_dot_h = n.dot(h);
+        //     let h_dot_v = h.dot(v);
+        //     let n_dot_v = n.dot(v);
+        //     let n_dot_l = n.dot(l);
+        //     gf::cook_torrance(n_dot_h.abs(), h_dot_v.abs(), n_dot_v.abs(), n_dot_l.abs())
+        // };
 
         let n_dot_l = n.dot(l);
         let n_dot_v = n.dot(v);
@@ -212,7 +220,7 @@ impl Material {
                 fresnel::schlick(self.index, self.color, self.metallic, h_dot_v)
             };
             // 3. geometry function
-            let g = gf(n, l, v);
+            let g = gf(n, l, v, h);
 
             // BRDF
             // Cook-Torrance = DFG / (4(n • l)(n • v))
@@ -246,7 +254,7 @@ impl Material {
             // 2. fresnel function
             let f = fresnel::schlick(self.index, self.color, self.metallic, h_dot_v.abs());
             // 3. geometry function
-            let g = gf(n, l, v);
+            let g = gf(n, l, v, h);
 
             // BTDF
             // Cook-Torrance = |l • h|/|n • l| * |v • h|/|n • v| * (1 - F)DG / (η_i / η_o * (h • l) + (h • v))^2
