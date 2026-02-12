@@ -45,6 +45,7 @@ impl Light {
                 let (p, n, pdf) = object.shape.sample(pos, rng, shutter_time);
                 let disp = p - pos;
                 let len = disp.length();
+                // Only consider the light if it's facing the point.
                 let cosine = (-disp.dot(n)).max(0.0) / len;
                 let surface_area = cosine / (len * len);
                 (
