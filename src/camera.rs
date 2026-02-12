@@ -1,6 +1,9 @@
+use rand::rngs::StdRng;
+use rand_distr::{Distribution, UnitDisc};
+
 use crate::{
     math::random,
-    math::{Point3, Ray, Vec3, vec3::random_in_unit_disk},
+    math::{Point3, Ray, Vec3},
 };
 
 #[allow(non_snake_case)]
@@ -76,8 +79,9 @@ impl Camera {
 
     /// Get the ray from aperture to pixel plane.
     /// The pixel plane uses coordinate (i, j) which ranged between [0, 1).
-    pub fn get_ray(&self, i: f32, j: f32) -> Ray {
-        let mut lens_offset = self.lens_radius * random_in_unit_disk();
+    pub fn get_ray(&self, i: f32, j: f32, rng: &mut StdRng) -> Ray {
+        let [x, y]: [f32; 2] = UnitDisc.sample(rng);
+        let mut lens_offset = self.lens_radius * Vec3::new(x, y, 0.0);
         lens_offset = self.c_x * lens_offset.x + self.c_y * lens_offset.y;
         let dir = self.upper_left + i * self.u + j * self.v - self.origin - lens_offset;
         let shutter_time = random();

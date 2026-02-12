@@ -17,7 +17,7 @@ pub type Point3 = Vec3A;
 pub mod vec3 {
     use super::*;
     use rand::{random_range, rngs::StdRng};
-    use rand_distr::{Distribution, UnitDisc, UnitSphere};
+    use rand_distr::{Distribution, UnitDisc};
 
     /// Generate a random vector with each component in [0, 1)
     #[inline]
@@ -35,24 +35,6 @@ pub mod vec3 {
         )
     }
 
-    /// Randomly generate a vector in a unit sphere (length <= 1.0)
-    #[inline]
-    pub fn random_in_unit_sphere() -> Vec3 {
-        loop {
-            let p = random_in_range(-1.0, 1.0);
-            if p.length_squared() < 1.0 {
-                return p;
-            }
-        }
-    }
-
-    /// Randomly generate a vector on the surface of a unit sphere.
-    #[inline]
-    pub fn random_unit_vector() -> Vec3 {
-        let [x, y, z] = UnitSphere.sample(&mut rand::rng());
-        Vec3::new(x, y, z)
-    }
-
     /// Randomly generate a vector on the surface of a unit hemisphere using uniform probability
     /// density sampling.
     #[inline]
@@ -65,22 +47,12 @@ pub mod vec3 {
         Vec3::new(x, y, z)
     }
 
-    /// Randomly generate a vector on the surface of a unit hemisphere using cosine weight
-    /// probability density sampling.
+    /// Randomly generate a vector on the surface of a unit hemisphere using Malley's method.
     #[inline]
     pub fn random_cosine_weight_on_hemisphere(rng: &mut StdRng) -> Vec3 {
-        let r1 = rng.random::<f32>();
-        let r2 = rng.random::<f32>();
-        let x = (2.0 * f32::consts::PI * r1).cos() * r2.sqrt();
-        let y = (2.0 * f32::consts::PI * r1).sin() * r2.sqrt();
-        let z = (1.0 - r2).sqrt();
+        let [x, y]: [f32; 2] = UnitDisc.sample(rng);
+        let z = (1.0 - x * x - y * y).sqrt();
         Vec3::new(x, y, z)
-    }
-
-    /// Randomly generate a vector in a unit disk.
-    pub fn random_in_unit_disk() -> Vec3 {
-        let [x, y] = UnitDisc.sample(&mut rand::rng());
-        Vec3::new(x, y, 0.0)
     }
 }
 

@@ -102,10 +102,13 @@ impl Renderer {
                 if let Some((l, pdf)) = rec.material().scatter(rng, rec.normal, v, rec.front_face) {
                     let f = rec.material().bsdf(l, v, rec.normal, rec.front_face);
                     let scatter = Ray::new(rec.p, l, ray.t);
-                    color += 1.0 / pdf
+                    let indirect = 1.0 / pdf
                         * f
                         * rec.normal.dot(l).abs()
                         * self.trace_ray(&scatter, num_bounces - 1, rng);
+                    if indirect.is_finite() {
+                        color += indirect.min(Vec3::splat(100.0));
+                    }
                 }
                 color
             }
@@ -163,7 +166,7 @@ impl Renderer {
                 let s = (col as f32 + (x as f32 + random()) / iter_sqrt as f32) / self.width as f32;
                 let t =
                     (row as f32 + (y as f32 + random()) / iter_sqrt as f32) / self.height as f32;
-                let r = self.cam.get_ray(s, t);
+                let r = self.cam.get_ray(s, t, rng);
                 let sample_color = self.trace_ray(&r, self.max_bounces, rng);
                 // Avoid NaN and infinity in color which may cause pixel acne.
                 if sample_color.is_finite() {
