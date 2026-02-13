@@ -4,10 +4,10 @@ The project is a simple path tracing renderer implemented in `Rust` language. It
 
 ## Features
 
-- [x] Implemented CPU multithreading using `rayon`.
-- [x] Supports directly rendering the images as `PNG` instead of `PPM` format.
-- [x] A unified BSDF-based scattering model (Microfacet BRDF/BTDF) for all materials, replacing separate scatter implementations. Supports Roughness, Metallic, IOR, and Transparency.
-- [x] Able to set the shutting time for motion blur effects.
+- [x] Support CPU multithreading.
+- [x] Supports rendering the images as `PNG` format.
+- [x] Uses BSDF-based microfacet model materials.
+- [x] Support to set the shutting time for motion blur effects.
 
 ## Future Work
 
