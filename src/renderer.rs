@@ -1,7 +1,7 @@
 use std::f32;
 
 use image::RgbImage;
-use indicatif::ProgressBar;
+use indicatif::{ProgressBar, ProgressStyle};
 use rand::SeedableRng;
 use rand::rngs::StdRng;
 use rayon::prelude::*;
@@ -34,9 +34,6 @@ pub struct Renderer {
 
     /// The maximum number of the light bounces in the image.
     pub max_bounces: u32,
-
-    /// The progress bar to show
-    pub pb: Option<ProgressBar>,
 }
 
 impl Renderer {
@@ -47,7 +44,6 @@ impl Renderer {
             scene,
             width: 800,
             height: 600,
-            pb: None,
             max_bounces: 50,
             num_samples: 100,
         }
@@ -62,12 +58,6 @@ impl Renderer {
     /// Set the height of output image.
     pub const fn height(mut self, height: u32) -> Self {
         self.height = height;
-        self
-    }
-
-    /// Set progress bar for renderer.
-    pub fn progress_bar(mut self, pb: ProgressBar) -> Self {
-        self.pb = Some(pb);
         self
     }
 
@@ -179,6 +169,16 @@ impl Renderer {
 
     /// Get all pixel colors in film plane and store into `buffer`.
     pub fn sample(&self, iterations: u32, buffer: &mut Buffer) {
+        // Progress bar
+        let pb = ProgressBar::new(self.height as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("[{elapsed_precise}] {bar:40.cyan/blue} {pos}/{len} ({eta})")
+                .unwrap()
+                .progress_chars("=>-"),
+        );
+
+        // Pixel colors
         let colors: Vec<_> = (0..self.height)
             .into_par_iter()
             .map(|row| {
@@ -188,16 +188,12 @@ impl Renderer {
                     .collect();
 
                 // Update progress bar after finish each row
-                if let Some(pb) = self.pb.as_ref() {
-                    pb.inc(1);
-                }
+                pb.inc(1);
                 row_pixels
             })
             .collect();
         buffer.extend(colors);
-        if let Some(pb) = self.pb.as_ref() {
-            pb.finish_with_message("Done!");
-        }
+        pb.finish_with_message("Done!");
     }
 
     /// Render the image for given scene and return `RgbImage`.

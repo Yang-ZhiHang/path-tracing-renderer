@@ -7,10 +7,11 @@ use crate::{
     aabb::Aabb,
     interval::Interval,
     material::Material,
-    math::{Point3, Ray, Vec3},
+    math::{Axis, Point3, Ray, Vec3},
 };
 
-pub mod constant_medium;
+// TODO: Add constant medium to reach volume fog.
+// pub mod constant_medium;
 pub mod cube;
 pub mod quad;
 pub mod sphere;
@@ -90,12 +91,12 @@ pub struct Transformed<T> {
     /// The transformation matrix to transform object.
     transform: Mat4,
 
+    /// The inverse of `transform` which use to transform the incident ray.
+    inverse_transform: Mat4,
+
     #[allow(dead_code)]
     /// The transformation which extract from `transform` and not contains translate part.
     linear: Mat3A,
-
-    /// The inverse of `transform` which use to transform the incident ray.
-    inverse_transform: Mat4,
 
     /// The inverse and transpose of `transform` which use to rectify normal vector.
     normal_transform: Mat3A,
@@ -139,7 +140,7 @@ impl<T: Bounded> Bounded for Transformed<T> {
     fn bbox(&self) -> Aabb {
         let Aabb { x, y, z } = self.shape.bbox();
 
-        // Transform all 8 corners and find min/max
+        // Transform all 8 corners and find aabb of transformed shape.
         let corners = [
             (x.min, y.min, z.min),
             (x.min, y.min, z.max),
@@ -151,44 +152,28 @@ impl<T: Bounded> Bounded for Transformed<T> {
             (x.max, y.max, z.max),
         ];
 
-        let transformed: Vec<_> = corners
-            .iter()
-            .map(|&(x, y, z)| {
-                let p = (self.transform * Vec4::new(x, y, z, 1.0)).xyz();
-                (p.x, p.y, p.z)
-            })
-            .collect();
+        let mut min_x = f32::INFINITY;
+        let mut max_x = f32::NEG_INFINITY;
+        let mut min_y = f32::INFINITY;
+        let mut max_y = f32::NEG_INFINITY;
+        let mut min_z = f32::INFINITY;
+        let mut max_z = f32::NEG_INFINITY;
 
-        let min_x = transformed
-            .iter()
-            .map(|p| p.0)
-            .fold(f32::INFINITY, f32::min);
-        let max_x = transformed
-            .iter()
-            .map(|p| p.0)
-            .fold(f32::NEG_INFINITY, f32::max);
-        let min_y = transformed
-            .iter()
-            .map(|p| p.1)
-            .fold(f32::INFINITY, f32::min);
-        let max_y = transformed
-            .iter()
-            .map(|p| p.1)
-            .fold(f32::NEG_INFINITY, f32::max);
-        let min_z = transformed
-            .iter()
-            .map(|p| p.2)
-            .fold(f32::INFINITY, f32::min);
-        let max_z = transformed
-            .iter()
-            .map(|p| p.2)
-            .fold(f32::NEG_INFINITY, f32::max);
-
-        Aabb {
-            x: Interval::new(min_x, max_x),
-            y: Interval::new(min_y, max_y),
-            z: Interval::new(min_z, max_z),
+        for (cx, cy, cz) in corners {
+            let transformed = (self.transform * Vec4::new(cx, cy, cz, 1.0)).xyz();
+            min_x = min_x.min(transformed.x);
+            max_x = max_x.max(transformed.x);
+            min_y = min_y.min(transformed.y);
+            max_y = max_y.max(transformed.y);
+            min_z = min_z.min(transformed.z);
+            max_z = max_z.max(transformed.z);
         }
+
+        Aabb::new(
+            Interval::new(min_x, max_x),
+            Interval::new(min_y, max_y),
+            Interval::new(min_z, max_z),
+        )
     }
 }
 
@@ -196,21 +181,20 @@ pub trait Transformable<T> {
     /// Translate the shape from vector.
     fn translate(self, v: Vec3) -> Transformed<T>;
 
-    /// Rotate the shape from a specified angle in radians
-    fn rotate(self, axis: Vec3, angle: f32) -> Transformed<T>;
-
-    /// Rotate the shape in y-axis from a specified angle in radians
-    fn rotate_y(self, angle: f32) -> Transformed<T>;
+    /// Rotate the shape from a specified angle in radians.
+    fn rotate(self, axis: Axis, angle: f32) -> Transformed<T>;
 }
 
 impl<T: Hittable> Transformable<T> for T {
     fn translate(self, v: Vec3) -> Transformed<T> {
         Transformed::new(self, Mat4::from_translation(v.into()))
     }
-    fn rotate(self, axis: Vec3, angle: f32) -> Transformed<T> {
-        Transformed::new(self, Mat4::from_axis_angle(axis.into(), angle))
-    }
-    fn rotate_y(self, angle: f32) -> Transformed<T> {
-        Transformed::new(self, Mat4::from_rotation_y(angle))
+    fn rotate(self, axis: Axis, angle: f32) -> Transformed<T> {
+        let axis_vec = match axis {
+            Axis::X => glam::Vec3::new(1.0, 0.0, 0.0),
+            Axis::Y => glam::Vec3::new(0.0, 1.0, 0.0),
+            Axis::Z => glam::Vec3::new(0.0, 0.0, 1.0),
+        };
+        Transformed::new(self, Mat4::from_axis_angle(axis_vec, angle))
     }
 }

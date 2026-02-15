@@ -56,18 +56,6 @@ pub mod vec3 {
     }
 }
 
-pub trait Vec3Ext {
-    /// Check if the vector is close to zero in length
-    fn near_zero(&self) -> bool;
-}
-
-impl Vec3Ext for Vec3 {
-    #[inline]
-    fn near_zero(&self) -> bool {
-        self.length_squared() < f32::EPSILON
-    }
-}
-
 #[derive(Default)]
 /// A ray can be represented as: `A + t*B` where `A` is origin, `B` is direction, and `t` is a scalar.
 /// For any given value of t, we can compute the point along the ray using the `at` method below.
@@ -110,4 +98,11 @@ impl Ray {
             t: self.t,
         }
     }
+}
+
+#[derive(Copy, Clone)]
+pub enum Axis {
+    X = 0,
+    Y = 1,
+    Z = 2,
 }

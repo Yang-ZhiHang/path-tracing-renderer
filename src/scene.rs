@@ -32,7 +32,6 @@ impl Scene {
     /// Builder-style add that consumes and returns the Scene.
     pub fn with_obj(mut self, obj: Object) -> Self {
         self.objects.push(obj);
-        self.bvh = None;
         self
     }
 
@@ -42,14 +41,12 @@ impl Scene {
         I: IntoIterator<Item = Object>,
     {
         self.objects.extend(obj_list);
-        self.bvh = None;
         self
     }
 
     /// Add a Light to Scene.
     pub fn with_light(mut self, light: Light) -> Self {
         self.lights.push(light);
-        self.bvh = None;
         self
     }
 
@@ -59,16 +56,17 @@ impl Scene {
         I: IntoIterator<Item = Light>,
     {
         self.lights.extend(lights);
-        self.bvh = None;
         self
     }
 
     /// Build BVH from current objects which should call after scene setup.
-    pub fn build_bvh(&mut self) {
+    /// After built the BVH, you can't add more objects or lights to scene. Or else you should call this function again.
+    pub fn build_bvh(mut self) -> Self {
         if self.objects.is_empty() {
             self.bvh = None;
-            return;
+        } else {
+            self.bvh = Some(BvhNode::build(self.objects.clone()));
         }
-        self.bvh = Some(BvhNode::build(self.objects.clone()));
+        self
     }
 }

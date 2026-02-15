@@ -2,10 +2,10 @@ use std::mem::swap;
 
 use crate::{
     interval::Interval,
-    math::{Point3, Ray},
+    math::{Axis, Point3, Ray},
 };
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 /// Axis-Aligned Bounding Box.
 pub struct Aabb {
     /// The interval in x axis.
@@ -39,11 +39,11 @@ impl Aabb {
     }
 
     /// Return the axis-specified interval according to the index.
-    pub const fn axis_interval(&self, axis_index: usize) -> Interval {
-        match axis_index {
-            0 => self.x,
-            1 => self.y,
-            _ => self.z,
+    pub const fn axis_interval(&self, axis: Axis) -> Interval {
+        match axis {
+            Axis::X => self.x,
+            Axis::Y => self.y,
+            Axis::Z => self.z,
         }
     }
 
@@ -52,11 +52,11 @@ impl Aabb {
         let mut bounds = ray_t;
 
         // Check intersection with three pairs of planes
-        for axis in 0..3 {
+        for axis in [Axis::X, Axis::Y, Axis::Z] {
             let interval = self.axis_interval(axis);
-            let inv_d = 1.0 / r.dir[axis];
-            let mut t0 = (interval.min - r.ori[axis]) * inv_d;
-            let mut t1 = (interval.max - r.ori[axis]) * inv_d;
+            let inv_d = 1.0 / r.dir[axis as usize];
+            let mut t0 = (interval.min - r.ori[axis as usize]) * inv_d;
+            let mut t1 = (interval.max - r.ori[axis as usize]) * inv_d;
             if inv_d < 0.0 {
                 swap(&mut t0, &mut t1);
             }
@@ -84,14 +84,14 @@ impl Aabb {
         self
     }
 
-    /// Get the longest axis of the AABB: 0 for x, 1 for y, 2 for z.
-    pub fn longest_axis(&self) -> usize {
+    /// Get the longest axis of the aabb: 0 for x, 1 for y, 2 for z.
+    pub fn longest_axis(&self) -> Axis {
         if self.x.size() >= self.y.size() && self.x.size() >= self.z.size() {
-            0
+            Axis::X
         } else if self.y.size() >= self.z.size() {
-            1
+            Axis::Y
         } else {
-            2
+            Axis::Z
         }
     }
 }

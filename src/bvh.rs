@@ -2,11 +2,11 @@ use std::cmp::Ordering;
 
 use crate::aabb::Aabb;
 use crate::interval::Interval;
-use crate::math::Ray;
+use crate::math::{Axis, Ray};
 use crate::object::Object;
 use crate::shape::{Bounded, HitRecord, Hittable};
 
-/// A node in the Bounding Volume Hierarchy. Used to accelerate ray intersection: O(n) -> O(log n)
+/// A node in the Bounding Volume Hierarchy. Used to accelerate ray intersection: O(n) -> O(log_n)
 pub enum BvhNode {
     Leaf {
         object: Object,
@@ -27,47 +27,29 @@ impl BvhNode {
     }
 
     /// Compare the min value of AABB in given axis index.
-    pub fn box_compare(a: Aabb, b: Aabb, axis_index: usize) -> Ordering {
-        let a_axis_interval = a.axis_interval(axis_index);
-        let b_axis_interval = b.axis_interval(axis_index);
+    pub fn box_compare(a: Aabb, b: Aabb, axis: Axis) -> Ordering {
+        let a_axis_interval = a.axis_interval(axis);
+        let b_axis_interval = b.axis_interval(axis);
         a_axis_interval
             .min
             .partial_cmp(&b_axis_interval.min)
             .unwrap_or(Ordering::Equal)
     }
 
-    /// Compare the min value of AABB in x axis.
-    pub fn box_x_compare(a: Aabb, b: Aabb) -> Ordering {
-        Self::box_compare(a, b, 0)
-    }
-
-    /// Compare the min value of AABB in y axis.
-    pub fn box_y_compare(a: Aabb, b: Aabb) -> Ordering {
-        Self::box_compare(a, b, 1)
-    }
-
-    /// Compare the min value of AABB in z axis.
-    pub fn box_z_compare(a: Aabb, b: Aabb) -> Ordering {
-        Self::box_compare(a, b, 2)
-    }
-
     /// Build BVH from slice of objects.
     fn build_from_slice(objects: &mut [Object]) -> Self {
+        // Compute the aabb of all objects (the biggest aabb).
+        // Then, sort objects and split into two halves (according to longest axis).
         let (first, rest) = objects.split_first().unwrap();
         let mut bbox = first.bbox();
         for obj in rest {
             bbox = Aabb::surrounding_box(&bbox, &obj.bbox());
         }
-        let axis_index = bbox.longest_axis();
-        let comparator = match axis_index {
-            0 => Self::box_x_compare,
-            1 => Self::box_y_compare,
-            _ => Self::box_z_compare,
-        };
+        let axis = bbox.longest_axis();
         objects.sort_by(|a, b| {
             let box_a = a.bbox();
             let box_b = b.bbox();
-            comparator(box_a, box_b)
+            Self::box_compare(box_a, box_b, axis)
         });
 
         match objects.len() {
@@ -81,7 +63,6 @@ impl BvhNode {
                 let (left_objs, right_objs) = objects.split_at_mut(1);
                 let left_node = Box::new(Self::build_from_slice(left_objs));
                 let right_node = Box::new(Self::build_from_slice(right_objs));
-                let bbox = Aabb::surrounding_box(&left_node.bbox(), &right_node.bbox());
                 Self::Node {
                     left: left_node,
                     right: right_node,
@@ -93,7 +74,6 @@ impl BvhNode {
                 let (left_objs, right_objs) = objects.split_at_mut(mid);
                 let left_node = Box::new(Self::build_from_slice(left_objs));
                 let right_node = Box::new(Self::build_from_slice(right_objs));
-                let bbox = Aabb::surrounding_box(&left_node.bbox(), &right_node.bbox());
                 Self::Node {
                     left: left_node,
                     right: right_node,
