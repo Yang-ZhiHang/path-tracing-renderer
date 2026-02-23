@@ -1,9 +1,9 @@
+use glam::DVec3;
 use image::ImageReader;
 
 use crate::color::{self, Color};
 use crate::image::HdrImage;
 use crate::light::Light;
-use crate::math::Vec3;
 use crate::{bvh::BvhNode, object::Object};
 
 #[derive(Default)]
@@ -123,13 +123,13 @@ impl Background {
             height,
             pixels
                 .chunks_exact(3)
-                .map(|p| Color::new(p[0], p[1], p[2]))
+                .map(|p| Color::new(p[0] as f64, p[1] as f64, p[2] as f64))
                 .collect(),
         ))
     }
 
     /// Get the color of background in specified ray direction.
-    pub fn sample(&self, dir: Vec3) -> Color {
+    pub fn sample(&self, dir: DVec3) -> Color {
         match self {
             Self::Color(c) => *c,
             Self::Image(image) => image.sample(dir),

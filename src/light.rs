@@ -1,18 +1,19 @@
-use std::f32;
+use std::f64;
 
+use glam::DVec3;
 use rand::rngs::StdRng;
 
-use crate::{color::Color, math::Vec3, object::Object};
+use crate::{color::Color, object::Object};
 
 pub enum Light {
     /// Ambient light with color
     Ambient(Color),
 
     /// Directional light with color and direction vector
-    Directional(Color, Vec3),
+    Directional(Color, DVec3),
 
     /// Point light with color and location in world coordinate.
-    Point(Color, Vec3),
+    Point(Color, DVec3),
 
     /// Light from invisible, emissive object
     Object(Object),
@@ -21,15 +22,20 @@ pub enum Light {
 impl Light {
     /// Illuminates a point.
     /// Returning the intensity, direction from `pos` to the light and distance from `pos` to the light in micro time.
-    pub fn illuminate(&self, pos: Vec3, rng: &mut StdRng, shutter_time: f32) -> (Vec3, Vec3, f32) {
+    pub fn illuminate(
+        &self,
+        pos: DVec3,
+        rng: &mut StdRng,
+        shutter_time: f64,
+    ) -> (DVec3, DVec3, f64) {
         match self {
-            Light::Ambient(color) => (*color, Vec3::ZERO, 0.0),
+            Light::Ambient(color) => (*color, DVec3::ZERO, 0.0),
             Light::Directional(color, dir) => (
                 *color,
                 // The dir means the direction from the light to the point.
                 // So we need to negate it to get the direction from the point to the light.
                 -*dir,
-                f32::INFINITY,
+                f64::INFINITY,
             ),
             Light::Point(color, loc) => {
                 let disp = loc - pos;

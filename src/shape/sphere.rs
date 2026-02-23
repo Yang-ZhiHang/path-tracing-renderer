@@ -1,24 +1,21 @@
-use std::f32;
-use std::f32::consts::PI;
+use std::f64;
+use std::f64::consts::PI;
 
+use glam::DVec3;
 use rand::rngs::StdRng;
 
 use crate::aabb::Aabb;
 use crate::interval::Interval;
-use crate::math::Point3;
-use crate::math::Ray;
-use crate::math::Vec3;
-use crate::math::vec3::random_cosine_weight_on_hemisphere;
+use crate::math::{DPoint3, Ray, vec::random_cosine_weight_on_hemisphere};
 use crate::onb::ONB;
-use crate::shape::Hittable;
-use crate::shape::{Bounded, HitRecord};
+use crate::shape::{Bounded, HitRecord, Hittable};
 
 pub struct Sphere {
     /// The center point of the sphere.
     center: Ray,
 
     /// The radius of the sphere.
-    radius: f32,
+    radius: f64,
 
     /// The axis-aligned bounding box of sphere.
     aabb: Aabb,
@@ -27,14 +24,14 @@ pub struct Sphere {
 impl Sphere {
     /// Create a sphere from center and radius. If center_to is provided, the sphere moves linearly
     /// from center_from to center_to as time t goes from 0.0 to 1.0.
-    pub fn new(center_from: Point3, center_to: Option<Point3>, radius: f32) -> Self {
+    pub fn new(center_from: DPoint3, center_to: Option<DPoint3>, radius: f64) -> Self {
         // Use absolute radius so negative-radius spheres still produce a valid box
         let r = radius.abs();
-        let radius_vec = Point3::splat(r);
+        let radius_vec = DPoint3::splat(r);
         let (center_direction, aabb) = center_to.map_or_else(
             || {
                 (
-                    Vec3::ZERO,
+                    DVec3::ZERO,
                     Aabb::from_points(center_from - radius_vec, center_from + radius_vec),
                 )
             },
@@ -53,7 +50,7 @@ impl Sphere {
     }
 
     /// Transform 3D sphere coordinates into plane coordinates using polar angle and azimuth angle.
-    pub fn get_sphere_uv(p: Point3) -> (f32, f32) {
+    pub fn get_sphere_uv(p: DPoint3) -> (f64, f64) {
         // Normalize to make UV mapping independent of radius length
         let p = p.normalize();
         let phi = (-p.z).atan2(p.x) + PI;
@@ -99,7 +96,12 @@ impl Hittable for Sphere {
     }
 
     /// Get a random point from the sphere and also return the vector from the random point to `target` and the PDF based on MIS.
-    fn sample(&self, target: Point3, rng: &mut StdRng, shutter_time: f32) -> (Point3, Vec3, f32) {
+    fn sample(
+        &self,
+        target: DPoint3,
+        rng: &mut StdRng,
+        shutter_time: f64,
+    ) -> (DPoint3, DVec3, f64) {
         let p = random_cosine_weight_on_hemisphere(rng);
         let n = (target - self.center.at(shutter_time)).normalize();
         let world_onb = ONB::new(n);
@@ -107,7 +109,7 @@ impl Hittable for Sphere {
         (
             world_p,
             n,
-            p.z * f32::consts::FRAC_1_PI / (self.radius * self.radius),
+            p.z * f64::consts::FRAC_1_PI / (self.radius * self.radius),
         ) // p.z = cosθ
     }
 }

@@ -1,75 +1,75 @@
-use std::f32;
+use std::f64;
 
-use glam::FloatExt;
+use glam::{DVec3, FloatExt};
 use rand::{Rng, rngs::StdRng};
 use rand_distr::{Distribution, UnitCircle};
 
 use crate::{
     color::{self, Color},
-    math::{Vec3, vec3::random_cosine_weight_on_hemisphere},
+    math::vec::random_cosine_weight_on_hemisphere,
     onb::ONB,
 };
 
 /// Normal Distribution Functions for microfacet distribution.
 pub mod ndf {
-    use std::f32;
+    use std::f64;
 
     /// Beckmann distribution.
     /// References:
     /// https://zhuanlan.zhihu.com/p/611622351
-    pub fn beckmann(roughness: f32, nh: f32) -> f32 {
+    pub fn beckmann(roughness: f64, nh: f64) -> f64 {
         // D = exp(-tanθ_h / m^2) / (π m^2 (n • h)^4)
         // Clamp roughness to avoid division by zero.
         let m2 = roughness * roughness;
         let nh2 = nh * nh;
         let tan2_t = (1.0 - nh2) / nh2;
-        (-tan2_t / m2).exp() / (f32::consts::PI * m2 * nh2 * nh2)
+        (-tan2_t / m2).exp() / (f64::consts::PI * m2 * nh2 * nh2)
     }
 
     /// GGX (Trowbridge-Reitz) distribution.
-    pub fn ggx(roughness: f32, nh: f32) -> f32 {
+    pub fn ggx(roughness: f64, nh: f64) -> f64 {
         let m2 = roughness * roughness;
         let m4 = m2 * m2;
         let nh2 = nh * nh;
-        m4 * f32::consts::FRAC_1_PI / ((nh2 * (m4 - 1.0) + 1.0).powi(2))
+        m4 * f64::consts::FRAC_1_PI / ((nh2 * (m4 - 1.0) + 1.0).powi(2))
     }
 
     /// Blinn-Phong distribution which is used in Unity and UE4.
     /// References:
     /// https://zhuanlan.zhihu.com/p/564814632
-    pub fn blinn_phong(roughness: f32, nh: f32) -> f32 {
+    pub fn blinn_phong(roughness: f64, nh: f64) -> f64 {
         let alpha = 2.0 * roughness.powi(2).recip() - 2.0;
-        (alpha + 2.0) * f32::consts::FRAC_1_PI * nh.powf(alpha) / 2.0
+        (alpha + 2.0) * f64::consts::FRAC_1_PI * nh.powf(alpha) / 2.0
     }
 }
 
 /// Fresnel function for reflectance calculation.
 pub mod fresnel {
-    use crate::math::Vec3;
+    use glam::DVec3;
 
     /// Fresnel function using Schlick's approximation.
     /// References:
     /// https://zhuanlan.zhihu.com/p/152226698
-    pub fn schlick(index: f32, color: Vec3, metallic: f32, h_dot_v: f32) -> Vec3 {
+    pub fn schlick(index: f64, color: DVec3, metallic: f64, h_dot_v: f64) -> DVec3 {
         // F = F0 + (1 - F0)(1 - v • h)^5
         let f0 = ((index - 1.0) / (index + 1.0)).powi(2);
 
-        let f0 = Vec3::splat(f0).lerp(color, metallic);
-        (1.0 - f0).mul_add(Vec3::splat((1.0 - h_dot_v).powi(5)), f0)
+        let f0 = DVec3::splat(f0).lerp(color, metallic);
+        (1.0 - f0).mul_add(DVec3::splat((1.0 - h_dot_v).powi(5)), f0)
     }
 }
 
 /// Geometry function for microfacet shadowing.
 pub mod gf {
-    use crate::math::Vec3;
+    use glam::DVec3;
 
     /// Smith's method with Schlick-GGX approximation, which is commonly used in path tracing.
-    pub fn smith_schlick_ggx(roughness: f32, n: Vec3, l: Vec3, v: Vec3) -> f32 {
+    pub fn smith_schlick_ggx(roughness: f64, n: DVec3, l: DVec3, v: DVec3) -> f64 {
         // G = min(1, 2(n • h)(n • wo)/(wo • h), 2(n • h)(n • wi)/(wo • h))
         // let k = (roughness + 1.0).powi(2) / 8.0;
         // k
         let k = roughness.powi(2) / 2.0;
-        let g = |v: Vec3| {
+        let g = |v: DVec3| {
             let n_dot_v = n.dot(v).abs();
             n_dot_v / (n_dot_v * (1.0 - k) + k)
         };
@@ -78,7 +78,7 @@ pub mod gf {
 
     /// Cook-Torrance method, which doesn't depend on the shape of NDF, and the calculation is
     /// simple but not as precise physically as Smith's method.
-    pub fn cook_torrance(n_dot_h: f32, h_dot_v: f32, n_dot_v: f32, n_dot_l: f32) -> f32 {
+    pub fn cook_torrance(n_dot_h: f64, h_dot_v: f64, n_dot_v: f64, n_dot_l: f64) -> f64 {
         let g = (n_dot_h * n_dot_l).min(n_dot_h * n_dot_v);
         let g = (2.0 * g) / h_dot_v;
         g.min(1.0)
@@ -91,16 +91,16 @@ pub struct Material {
     pub color: Color,
 
     /// The roughness of the material. Values will be automatically clamped between 0.01 and 1.0.
-    pub roughness: f32,
+    pub roughness: f64,
 
     /// The metallic property of the material. Values between 0.0 and 1.0.
-    pub metallic: f32,
+    pub metallic: f64,
 
     /// The index of refraction of the material.
-    pub index: f32,
+    pub index: f64,
 
     /// The emittance of the material. Used for light sources.
-    pub emittance: f32,
+    pub emittance: f64,
 
     /// Whether the material is transparent.
     pub transparent: bool,
@@ -108,7 +108,7 @@ pub struct Material {
 
 impl Material {
     /// Base constructor with default values, sanitized roughness and index of refraction.
-    pub fn base(index: f32, roughness: f32) -> Self {
+    pub fn base(index: f64, roughness: f64) -> Self {
         Self {
             color: color::WHITE,
             // Clamp roughness to avoid numerical issues in NDF.
@@ -123,7 +123,7 @@ impl Material {
     }
 
     /// Specular reflection material with specified color.
-    pub fn specular(color: Color, roughness: f32) -> Self {
+    pub fn specular(color: Color, roughness: f64) -> Self {
         Self {
             color,
             ..Self::base(1.0, roughness)
@@ -139,7 +139,7 @@ impl Material {
     }
 
     /// Transparent glass material with specified roughness and index of refraction.
-    pub fn clear(index: f32, roughness: f32) -> Self {
+    pub fn clear(index: f64, roughness: f64) -> Self {
         Self {
             transparent: true,
             ..Self::base(index, roughness)
@@ -147,7 +147,7 @@ impl Material {
     }
 
     /// Metal material with specified color and roughness.
-    pub fn metallic(color: Color, roughness: f32) -> Self {
+    pub fn metallic(color: Color, roughness: f64) -> Self {
         Self {
             color,
             metallic: 1.0,
@@ -156,7 +156,7 @@ impl Material {
     }
 
     /// Light material with specified color and emittance.
-    pub fn light(color: Color, emittance: f32) -> Self {
+    pub fn light(color: Color, emittance: f64) -> Self {
         Self {
             color,
             emittance,
@@ -165,7 +165,7 @@ impl Material {
     }
 
     /// Colored transparent material
-    pub fn transparent(color: Color, index: f32, roughness: f32) -> Self {
+    pub fn transparent(color: Color, index: f64, roughness: f64) -> Self {
         Self {
             color,
             transparent: true,
@@ -186,11 +186,11 @@ impl Material {
     ///   the normal
     ///
     /// Returning the function describes the distribution of scattering.
-    pub fn bsdf(&self, l: Vec3, v: Vec3, n: Vec3, front_face: bool) -> Vec3 {
+    pub fn bsdf(&self, l: DVec3, v: DVec3, n: DVec3, front_face: bool) -> DVec3 {
         // normal distribution function
         let ndf = |nh| ndf::beckmann(self.roughness, nh);
         let gf = |n, l, v, _h| gf::smith_schlick_ggx(self.roughness, n, l, v);
-        // let gf = |n: Vec3, l, v, h| {
+        // let gf = |n: DVec3, l, v, h| {
         //     let n_dot_h = n.dot(h);
         //     let h_dot_v = h.dot(v);
         //     let n_dot_v = n.dot(v);
@@ -215,7 +215,7 @@ impl Material {
             let d = ndf(n_dot_h);
             // 2. fresnel function
             let f = if !l_outside && (1.0 - n_dot_v * n_dot_v).sqrt() * self.index > 1.0 {
-                Vec3::splat(1.0)
+                DVec3::splat(1.0)
             } else {
                 fresnel::schlick(self.index, self.color, self.metallic, h_dot_v)
             };
@@ -229,7 +229,7 @@ impl Material {
             if self.transparent {
                 specular
             } else {
-                let diffuse = (1.0 - f) * self.color * f32::consts::FRAC_1_PI;
+                let diffuse = (1.0 - f) * self.color * f64::consts::FRAC_1_PI;
                 specular + diffuse
             }
         } else {
@@ -270,10 +270,10 @@ impl Material {
     pub fn scatter(
         &self,
         rng: &mut StdRng,
-        n: Vec3,
-        v: Vec3,
+        n: DVec3,
+        v: DVec3,
         front_face: bool,
-    ) -> Option<(Vec3, f32)> {
+    ) -> Option<(DVec3, f64)> {
         let m2 = self.roughness * self.roughness;
         let world_onb = ONB::new(n);
         // front_face equals to -v.dot(n).is_sign_negative() which implemented in `shape.rs`.
@@ -294,18 +294,18 @@ impl Material {
         // Probability Integral Transform
         let beckmann = |rng: &mut StdRng| {
             // θ = arctan √(-m^2 ln U)
-            let theta = (-m2 * rng.random::<f32>().ln()).sqrt().atan();
+            let theta = (-m2 * rng.random::<f64>().ln()).sqrt().atan();
             let (sin_t, cos_t) = theta.sin_cos();
-            let [x, y]: [f32; 2] = UnitCircle.sample(rng);
-            let h = Vec3::new(x * sin_t, y * sin_t, cos_t);
+            let [x, y]: [f64; 2] = UnitCircle.sample(rng);
+            let h = DVec3::new(x * sin_t, y * sin_t, cos_t);
             world_onb.transform(h)
         };
 
-        let beckmann_pdf = |h: Vec3| {
+        let beckmann_pdf = |h: DVec3| {
             // p = 1 / (π m^2 cos^3 θ) * e^(-tan^2(θ) / m^2)
             let cos_t = n.dot(h).abs();
             let sin_t = (1.0 - cos_t.powi(2)).sqrt();
-            (f32::consts::PI * m2 * cos_t.powi(3)).recip() * (-(sin_t / cos_t).powi(2) / m2).exp()
+            (f64::consts::PI * m2 * cos_t.powi(3)).recip() * (-(sin_t / cos_t).powi(2) / m2).exp()
         };
 
         let l = if rng.random_bool(f as f64) {
@@ -342,7 +342,7 @@ impl Material {
         };
         pdf += if !self.transparent {
             // diffuse component
-            (1.0 - f) * n.dot(l).abs() * f32::consts::FRAC_1_PI
+            (1.0 - f) * n.dot(l).abs() * f64::consts::FRAC_1_PI
         } else if n.dot(v).is_sign_positive() != n.dot(l).is_sign_positive() {
             // transmit component
             let h = -(l * eta_t + v).normalize();

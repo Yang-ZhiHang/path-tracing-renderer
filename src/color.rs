@@ -1,11 +1,12 @@
-use glam::Vec3A;
+use glam::DVec3;
 
 // Struct member `x`, `y`, `z` respectively represent red, green, blue component in a color.
-pub type Color = Vec3A;
+pub type Color = DVec3;
 
 // gamma correct power coefficient
-const SRGB_GAMMA: f32 = 2.2;
+const SRGB_GAMMA: f64 = 2.2;
 
+// type annotation needed for const 
 pub const BLACK: Color = Color::ZERO;
 pub const GREY: Color = Color::splat(0.5);
 pub const WHITE: Color = Color::splat(1.0);

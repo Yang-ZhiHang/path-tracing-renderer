@@ -2,7 +2,7 @@ use std::mem::swap;
 
 use crate::{
     interval::Interval,
-    math::{Axis, Point3, Ray},
+    math::{Axis, DPoint3, Ray},
 };
 
 #[derive(Clone, Copy)]
@@ -25,7 +25,7 @@ impl Aabb {
     }
 
     /// Create AABB from min and max points.
-    pub fn from_points(p0: Point3, p1: Point3) -> Self {
+    pub fn from_points(p0: DPoint3, p1: DPoint3) -> Self {
         // Ensure each axis interval is ordered so callers don't need to pre-sort inputs.
         let x = Interval::new(p0.x.min(p1.x), p0.x.max(p1.x));
         let y = Interval::new(p0.y.min(p1.y), p0.y.max(p1.y));

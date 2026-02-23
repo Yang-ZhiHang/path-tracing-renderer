@@ -1,40 +1,41 @@
-use std::f32;
+use std::f64;
 
+use glam::DVec3;
 use rand::rngs::StdRng;
 
 use crate::{
     aabb::Aabb,
     interval::Interval,
-    math::{Point3, Ray, Vec3},
+    math::{DPoint3, Ray},
     shape::{Bounded, HitRecord, Hittable},
 };
 
 #[allow(non_snake_case)]
 pub struct Quad {
     /// The origin of the quadrilateral plane.
-    pub origin: Point3,
+    pub origin: DPoint3,
 
     /// The basis vector u defines a x-aixs of the plane.
-    pub u: Vec3,
+    pub u: DVec3,
 
     /// The basis vector v defines a y-aixs of the plane.
-    pub v: Vec3,
+    pub v: DVec3,
 
     /// The normalized normal vector of the quad plane.
-    pub normal: Vec3,
+    pub normal: DVec3,
 
     /// The area of the limited plane.
-    pub area: f32,
+    pub area: f64,
 
     /// Plane constant in Ax+By+Cz=D
-    pub D: f32,
+    pub D: f64,
 
     /// P = Q + alpha * u + beta * v
     /// alpha = w * (p x v)
     /// beta  = w * (u x p)
     /// Where:
     /// p = P - Q, w = n / (n * n)
-    pub w: Vec3,
+    pub w: DVec3,
 
     /// The axis-aligned bounding box of sphere.
     pub aabb: Aabb,
@@ -45,7 +46,7 @@ impl Quad {
     /// Create a quadrilateral defined by an origin point and two basis vectors.
     /// The normal vector which is useful for object light is determined by the cross product
     /// of the two basis vectors.
-    pub fn new(origin: Point3, u: Vec3, v: Vec3) -> Self {
+    pub fn new(origin: DPoint3, u: DVec3, v: DVec3) -> Self {
         let n = u.cross(v);
         let area = n.length();
         let normal = n.normalize();
@@ -68,7 +69,7 @@ impl Quad {
         }
     }
 
-    pub fn is_interior(a: f32, b: f32, rec: &mut HitRecord) -> bool {
+    pub fn is_interior(a: f64, b: f64, rec: &mut HitRecord) -> bool {
         let unit_interval = Interval::new(0.0, 1.0);
         if !unit_interval.contains(a) || !unit_interval.contains(b) {
             return false;
@@ -84,7 +85,7 @@ impl Hittable for Quad {
         let denominator = self.normal.dot(r.dir);
 
         // Treat near-parallel rays as misses
-        if denominator.abs() < f32::EPSILON {
+        if denominator.abs() < f64::EPSILON {
             return None;
         }
 
@@ -112,10 +113,15 @@ impl Hittable for Quad {
     }
 
     /// Get a random point from the quadrangle and also return the vector from the random point to `target` and the constant PDF.
-    fn sample(&self, _target: Point3, rng: &mut StdRng, _shutter_time: f32) -> (Point3, Vec3, f32) {
+    fn sample(
+        &self,
+        _target: DPoint3,
+        rng: &mut StdRng,
+        _shutter_time: f64,
+    ) -> (DPoint3, DVec3, f64) {
         use rand::Rng; // Ensure Rng trait is in scope for usage
-        let alpha = rng.random::<f32>();
-        let beta = rng.random::<f32>();
+        let alpha = rng.random::<f64>();
+        let beta = rng.random::<f64>();
         let p = self.origin + alpha * self.u + beta * self.v;
         let pdf = 1.0 / (self.area);
         (p, self.normal, pdf)

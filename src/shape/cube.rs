@@ -1,23 +1,25 @@
+use glam::DVec3;
+
 use crate::{
     aabb::Aabb,
     interval::Interval,
-    math::{Point3, Ray, Vec3},
+    math::{DPoint3, Ray},
     shape::{Bounded, HitRecord, Hittable},
 };
 
 pub struct Cube {
     /// The point which is closer to the camera.
-    p_min: Point3,
+    p_min: DPoint3,
 
     /// The point which is further to the camera.
-    p_max: Point3,
+    p_max: DPoint3,
 
     /// The axis-aligned bounding box of sphere.
     aabb: Aabb,
 }
 
 impl Cube {
-    pub fn new(p1: Point3, p2: Point3) -> Self {
+    pub fn new(p1: DPoint3, p2: DPoint3) -> Self {
         let (p_min, p_max) = if p1.z < p2.z { (p1, p2) } else { (p2, p1) };
         let aabb = Aabb::new(
             Interval::new(p_min.x, p_max.x),
@@ -64,17 +66,17 @@ impl Hittable for Cube {
         // Calculate normal vector based on which face was hit
         let epsilon = 1e-4;
         let normal = if (rec.p.x - self.p_min.x).abs() < epsilon {
-            Vec3::new(-1.0, 0.0, 0.0)
+            DVec3::new(-1.0, 0.0, 0.0)
         } else if (rec.p.x - self.p_max.x).abs() < epsilon {
-            Vec3::new(1.0, 0.0, 0.0)
+            DVec3::new(1.0, 0.0, 0.0)
         } else if (rec.p.y - self.p_min.y).abs() < epsilon {
-            Vec3::new(0.0, -1.0, 0.0)
+            DVec3::new(0.0, -1.0, 0.0)
         } else if (rec.p.y - self.p_max.y).abs() < epsilon {
-            Vec3::new(0.0, 1.0, 0.0)
+            DVec3::new(0.0, 1.0, 0.0)
         } else if (rec.p.z - self.p_min.z).abs() < epsilon {
-            Vec3::new(0.0, 0.0, -1.0)
+            DVec3::new(0.0, 0.0, -1.0)
         } else {
-            Vec3::new(0.0, 0.0, 1.0)
+            DVec3::new(0.0, 0.0, 1.0)
         };
 
         rec.normal = normal;

@@ -1,6 +1,8 @@
-use std::f32;
+use std::f64;
 
-use crate::{color::Color, math::Vec3};
+use glam::DVec3;
+
+use crate::color::Color;
 
 pub struct HdrImage {
     /// The width of the image in pixels.
@@ -12,26 +14,27 @@ pub struct HdrImage {
 }
 
 impl HdrImage {
+    /// Create a `HdrImage` using flatten image array `buf` with its width and height.
     pub fn new(width: u32, height: u32, buf: Vec<Color>) -> Self {
         assert!(width * height == buf.len() as u32);
         Self { width, height, buf }
     }
 
     /// Sample the background of this image in camera's field of view.
-    pub fn sample(&self, dir: Vec3) -> Color {
+    pub fn sample(&self, dir: DVec3) -> Color {
         let polar = dir.y.acos();
-        let azimuth = dir.z.atan2(dir.x) + f32::consts::PI;
-        let x = azimuth / f32::consts::TAU * (self.width - 1) as f32;
-        let y = polar / f32::consts::PI * (self.height - 1) as f32;
+        let azimuth = dir.z.atan2(dir.x) + f64::consts::PI;
+        let x = azimuth / f64::consts::TAU * (self.width - 1) as f64;
+        let y = polar / f64::consts::PI * (self.height - 1) as f64;
         self.bilinear_sample(x, y)
     }
 
     /// Sample the pixel color using bilinear interpolation.
-    pub fn bilinear_sample(&self, x: f32, y: f32) -> Color {
+    pub fn bilinear_sample(&self, x: f64, y: f64) -> Color {
         let x0 = (x as u32).min(self.width - 1);
         let y0 = (y as u32).min(self.height - 1);
-        let dx = x - x0 as f32;
-        let dy = y - y0 as f32;
+        let dx = x - x0 as f64;
+        let dy = y - y0 as f64;
         let color00 = self.buf[(y0 * self.width + x0) as usize];
         let color01 = self.buf[(y0 * self.width + (x0 + 1)) as usize];
         let color10 = self.buf[((y0 + 1) * self.width + x0) as usize];

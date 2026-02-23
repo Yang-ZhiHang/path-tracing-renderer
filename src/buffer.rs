@@ -61,6 +61,6 @@ impl Buffer {
         let index = (y * self.width + x) as usize;
         let color: Color = self.samples[index].iter().sum();
         let count = self.samples[index].len();
-        color / count as f32
+        color / count as f64
     }
 }

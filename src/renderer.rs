@@ -1,5 +1,6 @@
-use std::f32;
+use std::f64;
 
+use glam::DVec3;
 use image::RgbImage;
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::SeedableRng;
@@ -11,8 +12,8 @@ use crate::camera::Camera;
 use crate::color::{self, Color};
 use crate::interval::Interval;
 use crate::light::Light;
+use crate::math::Ray;
 use crate::math::random;
-use crate::math::{Ray, Vec3};
 use crate::scene::Scene;
 use crate::shape::{HitRecord, Hittable};
 
@@ -80,7 +81,7 @@ impl Renderer {
         }
 
         // Start ray interval above zero (1e-3) to avoid shadow acne.
-        match self.intersect(ray, Interval::new(1e-3, f32::INFINITY)) {
+        match self.intersect(ray, Interval::new(1e-3, f64::INFINITY)) {
             None => self.scene.background.sample(ray.dir),
             Some(rec) => {
                 let mut color = rec.material().emittance * rec.material().color;
@@ -97,7 +98,7 @@ impl Renderer {
                         * rec.normal.dot(l).abs()
                         * self.trace_ray(&scatter, num_bounces - 1, rng);
                     if indirect.is_finite() {
-                        color += indirect.min(Vec3::splat(100.0));
+                        color += indirect.min(DVec3::splat(100.0));
                     }
                 }
                 color
@@ -109,8 +110,8 @@ impl Renderer {
     fn sample_lights(
         &self,
         rec: &HitRecord,
-        shutter_time: f32,
-        ray_view: Vec3,
+        shutter_time: f64,
+        ray_view: DVec3,
         rng: &mut StdRng,
     ) -> Color {
         let mut color_from_lights = Color::ZERO;
@@ -150,12 +151,12 @@ impl Renderer {
     pub fn get_color(&self, col: u32, row: u32, iterations: u32, rng: &mut StdRng) -> Color {
         let mut pixel_color = Color::default();
         // Sampling stratifications + Monte Carlo approximation.
-        let iter_sqrt = (iterations as f32).sqrt() as u32;
+        let iter_sqrt = (iterations as f64).sqrt() as u32;
         for y in 0..iter_sqrt {
             for x in 0..iter_sqrt {
-                let s = (col as f32 + (x as f32 + random()) / iter_sqrt as f32) / self.width as f32;
+                let s = (col as f64 + (x as f64 + random()) / iter_sqrt as f64) / self.width as f64;
                 let t =
-                    (row as f32 + (y as f32 + random()) / iter_sqrt as f32) / self.height as f32;
+                    (row as f64 + (y as f64 + random()) / iter_sqrt as f64) / self.height as f64;
                 let r = self.cam.get_ray(s, t, rng);
                 let sample_color = self.trace_ray(&r, self.max_bounces, rng);
                 // Avoid NaN and infinity in color which may cause pixel acne.
@@ -164,7 +165,7 @@ impl Renderer {
                 }
             }
         }
-        pixel_color / iterations as f32
+        pixel_color / iterations as f64
     }
 
     /// Get all pixel colors in film plane and store into `buffer`.
